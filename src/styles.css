@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+:root { color-scheme: dark; }
+body { margin: 0; min-width: 320px; background: #020617; }
+button, input { font: inherit; }
+.card { border: 1px solid #1e293b; border-radius: 0.75rem; background: #0f172a; padding: 1.25rem; box-shadow: 0 8px 24px rgb(0 0 0 / 0.12); }
+.button { display: inline-flex; align-items: center; justify-content: center; border-radius: 0.5rem; padding: 0.55rem 0.85rem; border: 1px solid transparent; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: 150ms; }
+.button:disabled { opacity: 0.45; cursor: not-allowed; }
+.button-default { background: #06b6d4; color: #082f49; }
+.button-default:not(:disabled):hover { background: #67e8f9; }
+.button-ghost { border-color: #334155; background: #0f172a; color: #cbd5e1; }
+.button-ghost:not(:disabled):hover { border-color: #475569; background: #1e293b; }
+.button-danger { border-color: #9f1239; background: #4c0519; color: #fecdd3; }
+.nav-link { white-space: nowrap; border-radius: 0.4rem; padding: 0.45rem 0.65rem; color: #94a3b8; font-size: 0.875rem; text-decoration: none; }
+.nav-link:hover, .nav-active { color: #e0f2fe; background: #172554; }
+.status { display: inline-flex; align-items: center; gap: 0.45rem; border-radius: 999px; padding: 0.4rem 0.65rem; font-size: 0.8rem; font-weight: 600; }
+.status-online { color: #bbf7d0; background: rgb(6 78 59 / .55); }
+.status-offline { color: #fecaca; background: rgb(127 29 29 / .55); }
+.status-dot { width: 0.45rem; height: 0.45rem; border-radius: 999px; background: currentColor; }
+dt { color: #94a3b8; } dd { margin-top: 0.2rem; color: #f8fafc; }
+table { width: 100%; border-collapse: collapse; min-width: 680px; }
+th { padding: 0.8rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; background: #111827; }
+td { padding: 0.8rem 1rem; border-top: 1px solid #1e293b; font-size: 0.875rem; color: #cbd5e1; }
+
