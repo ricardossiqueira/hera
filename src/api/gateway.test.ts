@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getStatus, GatewayApiError } from "./gateway";
+import { getStatus, GatewayApiError, listDeviceCommands } from "./gateway";
 import { clearCredentials, getCredentials, setCredentials } from "./auth";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   clearCredentials();
 });
 
@@ -52,3 +53,21 @@ describe("getStatus", () => {
   });
 });
 
+describe("listDeviceCommands", () => {
+  it("consulta o schema de comandos pelo ID do dispositivo", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      deviceId: "led-1", schemaValidated: true,
+      commands: [{ type: "set_led", parametersMessage: "iot.device.led.v1.SetLed" }],
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listDeviceCommands("led-1")).resolves.toMatchObject({
+      commands: [{ type: "set_led" }],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://gateway.local:8082/iot.gateway.api.v1.DeviceService/ListDeviceCommands",
+      expect.objectContaining({ body: JSON.stringify({ deviceId: "led-1" }) }),
+    );
+  });
+});

@@ -1,7 +1,7 @@
 import { createContext, type FormEvent, type ReactNode, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider, useParams } from "@tanstack/react-router";
-import { type Device, type GatewayStatus, GatewayApiError, getGatewayApiBaseUrl, getStatus, listDevices, publishSetLed } from "./api/gateway";
+import { type Device, type GatewayStatus, GatewayApiError, getGatewayApiBaseUrl, getStatus, listDeviceCommands, listDevices, publishSetLed } from "./api/gateway";
 import { type Credentials, clearCredentials, getCredentials, setCredentials, subscribeCredentials } from "./api/auth";
 import "./styles.css";
 
@@ -98,6 +98,35 @@ function useGateway() {
   const value = useContext(GatewayContext);
   if (!value) throw new Error("Contexto do gateway não disponível.");
   return value;
+}
+
+function useDeviceCommands(deviceId?: string) {
+  const [resource, setResource] = useState<Resource<string[]>>({ loading: false });
+
+  useEffect(() => {
+    if (!deviceId) {
+      setResource({ loading: false });
+      return;
+    }
+
+    let active = true;
+    setResource({ loading: true });
+    void listDeviceCommands(deviceId)
+      .then((response) => {
+        if (active) setResource({ data: response.commands.map((command) => command.type), loading: false });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setResource({
+          loading: false,
+          error: error instanceof Error ? error.message : "Erro inesperado ao consultar comandos.",
+        });
+      });
+
+    return () => { active = false; };
+  }, [deviceId]);
+
+  return resource;
 }
 
 function formatNumber(value: string | number | undefined) {
@@ -214,6 +243,7 @@ function DeviceDetail() {
   const { deviceId } = useParams({ from: "/devices/$deviceId" });
   const { devices, reportError } = useGateway();
   const device = devices.data?.find((item) => item.id === deviceId);
+  const commands = useDeviceCommands(device?.profile === "led.v1" ? device.id : undefined);
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<Toast>();
 
@@ -237,7 +267,7 @@ function DeviceDetail() {
   return <><Heading title={device.id} description="Detalhes de configuração e comandos disponíveis." action={<Link to="/devices" className="button button-ghost">Voltar</Link>} />
     {toast ? <div className={"mb-4 rounded-xl border p-3 text-sm " + (toast.kind === "success" ? "border-emerald-900 bg-emerald-950/40 text-emerald-200" : "border-rose-900 bg-rose-950/40 text-rose-200")}>{toast.message}</div> : null}
     <div className="grid gap-4 lg:grid-cols-2"><Card><h2 className="font-medium text-white">Configuração</h2><dl className="mt-4 grid gap-4 text-sm"><div><dt>Tipo</dt><dd>{device.type}</dd></div><div><dt>Profile</dt><dd>{device.profile || "Não definido"}</dd></div><div><dt>Habilitado</dt><dd>{device.enabled ? "Sim" : "Não"}</dd></div><div><dt>Tópico de comando</dt><dd className="break-all">{device.topics?.command || "Não configurado"}</dd></div></dl></Card>
-      <Card><h2 className="font-medium text-white">Comandos</h2>{device.profile === "led.v1" && device.enabled && device.topics?.command ? <div className="mt-4"><p className="text-sm leading-6 text-slate-400">O gateway confirma apenas a publicação no MQTT; este controle não confirma execução no ESP32.</p><div className="mt-5 flex flex-wrap gap-3"><Button disabled={sending} onClick={() => void send(true)}>Ligar LED</Button><Button disabled={sending} variant="ghost" onClick={() => void send(false)}>Desligar LED</Button></div></div> : <p className="mt-4 text-sm text-slate-400">Este dispositivo ainda não tem uma UI de comandos compatível.</p>}</Card></div>
+      <Card><h2 className="font-medium text-white">Comandos</h2>{commands.loading ? <p className="mt-4 text-sm text-slate-400">Verificando comandos declarados pelo gateway…</p> : commands.error ? <p className="mt-4 text-sm text-rose-300">Não foi possível verificar os comandos: {commands.error}</p> : device.enabled && device.topics?.command && commands.data?.includes("set_led") ? <div className="mt-4"><p className="text-sm leading-6 text-slate-400">O gateway confirma apenas a publicação no MQTT; este controle não confirma execução no ESP32.</p><div className="mt-5 flex flex-wrap gap-3"><Button disabled={sending} onClick={() => void send(true)}>Ligar LED</Button><Button disabled={sending} variant="ghost" onClick={() => void send(false)}>Desligar LED</Button></div></div> : <p className="mt-4 text-sm text-slate-400">Este dispositivo não declarou um comando compatível nesta interface.</p>}</Card></div>
   </>;
 }
 

@@ -30,6 +30,17 @@ export interface GatewayStatus {
   outboxFailed: string;
 }
 
+export interface CommandDescriptor {
+  type: string;
+  parametersMessage: string;
+}
+
+export interface ListDeviceCommandsResponse {
+  deviceId: string;
+  schemaValidated: boolean;
+  commands: CommandDescriptor[];
+}
+
 export class GatewayApiError extends Error {
   constructor(message: string, public readonly status?: number) {
     super(message);
@@ -96,10 +107,13 @@ export async function listDevices(): Promise<Device[]> {
   return result.devices ?? [];
 }
 
+export function listDeviceCommands(deviceId: string): Promise<ListDeviceCommandsResponse> {
+  return request(deviceService + "/ListDeviceCommands", { deviceId });
+}
+
 export function publishSetLed(deviceId: string, on: boolean) {
   return request<{ commandId: string; publishedAt: string }>(
     deviceService + "/PublishCommand",
     { deviceId, type: "set_led", parameters: { on } },
   );
 }
-
