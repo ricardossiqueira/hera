@@ -231,8 +231,9 @@ necessarios para `DeviceAdminService` e encaminha as RPCs operacionais para o
 processo sandboxed por loopback. Assim, a mesma autenticacao Basic e a mesma
 politica CORS envolvem todos os servicos publicos.
 
-A UI 8081 continua como contingencia ate a validacao fim a fim das rotas
-administrativas no Orange Pi e dos fluxos de rollback/reinicio.
+As rotas administrativas foram validadas fim a fim no Orange Pi em
+21/09/2026. A UI 8081 nao e mais uma contingencia necessaria; sua remocao
+controlada pertence ao Marco 4.
 
 ### 8.3 Observabilidade e fila
 
@@ -281,15 +282,14 @@ operacional por device.
 - Usar somente as quatro RPCs existentes.
 - Adicionar testes unitarios, de componentes e de integracao da camada HTTP.
 
-### Marco 2 — Integracao administrativa e migracao gradual
+### Marco 2 — Integracao administrativa e migracao gradual (concluido em 21/09/2026)
 
-- Integrar `ProvisionDevice`, `SetDeviceEnabled` e `RemoveDevice` ao
-  `gateway-web`, incluindo mensagens distintas para os codigos Connect.
-- Entregar cadastro LED, segredo de exibicao unica, habilitar/desabilitar e
-  remocao no `gateway-web`.
-- Validar fim a fim no Orange Pi real.
-- Manter 8081 como contingencia ate todos os fluxos administrativos passarem
-  pelos criterios de aceite abaixo.
+- `ProvisionDevice`, `SetDeviceEnabled` e `RemoveDevice` estao integrados
+  ao `gateway-web`, com mensagens distintas para os codigos Connect.
+- Cadastro LED, segredo de exibicao unica, habilitar/desabilitar e remocao foram
+  entregues e validados fim a fim no Orange Pi real.
+- Os criterios de aceite administrativos abaixo foram atendidos. A retirada da
+  UI 8081 segue como trabalho explicito do Marco 4.
 
 ### Marco 3 — Observabilidade historica
 
@@ -321,7 +321,7 @@ operacional por device.
 - Testes definidos passam e os fluxos principais sao validados contra o Orange
   Pi.
 
-### Marco 2
+### Marco 2 (concluido em 21/09/2026)
 
 - Nenhuma operacao privilegiada e feita pelo browser fora das RPCs de alto
   nivel.
@@ -331,5 +331,6 @@ operacional por device.
   anterior verificavel.
 - Habilitar/desabilitar e remover reiniciam o gateway como parte do sucesso.
 - Remocao exige que o operador digite o ID correto.
-- A UI 8081 so e removida depois de teste fim a fim de cadastro, enable/disable,
-  remocao, rollback e recuperacao apos reinicio.
+- A validacao fim a fim de cadastro, enable/disable, remocao, rollback e
+  recuperacao apos reinicio foi concluida. A remocao da UI 8081 fica no
+  escopo do Marco 4.
