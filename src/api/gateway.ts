@@ -41,8 +41,28 @@ export interface ListDeviceCommandsResponse {
   commands: CommandDescriptor[];
 }
 
+export interface ProvisionDeviceResponse {
+  device: Device;
+  mqttUsername: string;
+  mqttPassword: string;
+  restartedAt: string;
+}
+
+export interface SetDeviceEnabledResponse {
+  device: Device;
+  restartedAt: string;
+}
+
+export interface RemoveDeviceResponse {
+  restartedAt: string;
+}
+
 export class GatewayApiError extends Error {
-  constructor(message: string, public readonly status?: number) {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly code?: string,
+  ) {
     super(message);
     this.name = "GatewayApiError";
   }
@@ -50,6 +70,7 @@ export class GatewayApiError extends Error {
 
 const deviceService = "/iot.gateway.api.v1.DeviceService";
 const gatewayService = "/iot.gateway.api.v1.GatewayService";
+const deviceAdminService = "/iot.gateway.api.v1.DeviceAdminService";
 
 export function getGatewayApiBaseUrl(): string | undefined {
   const value = import.meta.env.VITE_GATEWAY_API_BASE_URL?.trim();
@@ -88,14 +109,31 @@ async function request<T>(path: string, body: object): Promise<T> {
     throw new GatewayApiError("Usuário ou senha inválidos.", 401);
   }
 
-  const payload = await response.json().catch(() => ({})) as { message?: string };
+  const payload = await response.json().catch(() => ({})) as { message?: string; code?: string };
   if (!response.ok) {
+    const message = errorMessage(payload.code, payload.message, response.status);
     throw new GatewayApiError(
-      payload.message ?? "A API respondeu HTTP " + response.status + ".",
+      message,
       response.status,
+      payload.code,
     );
   }
   return payload as T;
+}
+
+function errorMessage(code: string | undefined, fallback: string | undefined, status: number): string {
+  switch (code) {
+    case "already_exists":
+      return "ID já em uso. Escolha outro identificador para o dispositivo.";
+    case "not_found":
+      return "Dispositivo não encontrado. Atualize a lista e tente novamente.";
+    case "invalid_argument":
+      return "Os dados informados são inválidos. Revise os campos e tente novamente.";
+    case "internal":
+      return "O gateway não conseguiu concluir a operação. Nenhuma ação adicional deve ser tentada antes de verificar o diagnóstico.";
+    default:
+      return fallback ?? "A API respondeu HTTP " + status + ".";
+  }
 }
 
 export function getStatus(): Promise<GatewayStatus> {
@@ -116,4 +154,22 @@ export function publishSetLed(deviceId: string, on: boolean) {
     deviceService + "/PublishCommand",
     { deviceId, type: "set_led", parameters: { on } },
   );
+}
+
+export function provisionDevice(
+  deviceId: string,
+  template = "esp32_led.v1",
+): Promise<ProvisionDeviceResponse> {
+  return request(deviceAdminService + "/ProvisionDevice", { deviceId, template });
+}
+
+export function setDeviceEnabled(
+  deviceId: string,
+  enabled: boolean,
+): Promise<SetDeviceEnabledResponse> {
+  return request(deviceAdminService + "/SetDeviceEnabled", { deviceId, enabled });
+}
+
+export function removeDevice(deviceId: string): Promise<RemoveDeviceResponse> {
+  return request(deviceAdminService + "/RemoveDevice", { deviceId });
 }

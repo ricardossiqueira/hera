@@ -1,7 +1,7 @@
 import { createContext, type FormEvent, type ReactNode, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import { createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider, useParams } from "@tanstack/react-router";
-import { type Device, type GatewayStatus, GatewayApiError, getGatewayApiBaseUrl, getStatus, listDeviceCommands, listDevices, publishSetLed } from "./api/gateway";
+import { createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider, useNavigate, useParams } from "@tanstack/react-router";
+import { type Device, type GatewayStatus, GatewayApiError, getGatewayApiBaseUrl, getStatus, listDeviceCommands, listDevices, provisionDevice, publishSetLed, removeDevice, setDeviceEnabled } from "./api/gateway";
 import { type Credentials, clearCredentials, getCredentials, setCredentials, subscribeCredentials } from "./api/auth";
 import "./styles.css";
 
@@ -230,7 +230,7 @@ function Devices() {
     setToast(sent === selected.length ? { kind: "success", message: sent + " comando(s) enviado(s) ao MQTT." } : { kind: "error", message: sent + " de " + selected.length + " comando(s) foram enviados." });
   };
 
-  return <><Heading title="Dispositivos" description="Configuração declarada no gateway. A tela não infere se um ESP32 está online." action={<Button onClick={() => void refreshDevices()}>Atualizar agora</Button>} />
+  return <><Heading title="Dispositivos" description="Configuração declarada no gateway. A tela não infere se um ESP32 está online." action={<div className="flex gap-2"><Button onClick={() => void refreshDevices()}>Atualizar agora</Button><Link to="/devices/new" className="button button-default">Novo dispositivo</Link></div>} />
     {toast ? <div className={"mb-4 rounded-xl border p-3 text-sm " + (toast.kind === "success" ? "border-emerald-900 bg-emerald-950/40 text-emerald-200" : "border-rose-900 bg-rose-950/40 text-rose-200")}>{toast.message}</div> : null}
     {leds.length ? <Card className="mb-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-white">Controle em lote</p><p className="text-sm text-slate-400">{selected.length} LED(s) selecionado(s)</p></div><div className="flex gap-2"><Button disabled={!selected.length || sending} onClick={() => void sendBatch(true)}>Ligar selecionados</Button><Button disabled={!selected.length || sending} variant="ghost" onClick={() => void sendBatch(false)}>Desligar selecionados</Button></div></div></Card> : null}
     {devices.loading && !devices.data ? <Card>Carregando dispositivos…</Card> : null}
@@ -264,11 +264,129 @@ function DeviceDetail() {
     }
   };
 
-  return <><Heading title={device.id} description="Detalhes de configuração e comandos disponíveis." action={<Link to="/devices" className="button button-ghost">Voltar</Link>} />
+  return <><Heading title={device.id} description="Detalhes de configuração e comandos disponíveis." action={<div className="flex flex-wrap gap-2"><Link to="/devices/$deviceId/settings" params={{ deviceId: device.id }} className="button button-ghost">Configurações</Link><Link to="/devices/$deviceId/remove" params={{ deviceId: device.id }} className="button button-danger">Remover</Link><Link to="/devices" className="button button-ghost">Voltar</Link></div>} />
     {toast ? <div className={"mb-4 rounded-xl border p-3 text-sm " + (toast.kind === "success" ? "border-emerald-900 bg-emerald-950/40 text-emerald-200" : "border-rose-900 bg-rose-950/40 text-rose-200")}>{toast.message}</div> : null}
     <div className="grid gap-4 lg:grid-cols-2"><Card><h2 className="font-medium text-white">Configuração</h2><dl className="mt-4 grid gap-4 text-sm"><div><dt>Tipo</dt><dd>{device.type}</dd></div><div><dt>Profile</dt><dd>{device.profile || "Não definido"}</dd></div><div><dt>Habilitado</dt><dd>{device.enabled ? "Sim" : "Não"}</dd></div><div><dt>Tópico de comando</dt><dd className="break-all">{device.topics?.command || "Não configurado"}</dd></div></dl></Card>
       <Card><h2 className="font-medium text-white">Comandos</h2>{commands.loading ? <p className="mt-4 text-sm text-slate-400">Verificando comandos declarados pelo gateway…</p> : commands.error ? <p className="mt-4 text-sm text-rose-300">Não foi possível verificar os comandos: {commands.error}</p> : device.enabled && device.topics?.command && commands.data?.includes("set_led") ? <div className="mt-4"><p className="text-sm leading-6 text-slate-400">O gateway confirma apenas a publicação no MQTT; este controle não confirma execução no ESP32.</p><div className="mt-5 flex flex-wrap gap-3"><Button disabled={sending} onClick={() => void send(true)}>Ligar LED</Button><Button disabled={sending} variant="ghost" onClick={() => void send(false)}>Desligar LED</Button></div></div> : <p className="mt-4 text-sm text-slate-400">Este dispositivo não declarou um comando compatível nesta interface.</p>}</Card></div>
   </>;
+}
+
+function NewDevice() {
+  const { refreshDevices } = useGateway();
+  const [deviceId, setDeviceId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+  const [result, setResult] = useState<{ mqttUsername: string; mqttPassword: string }>();
+  const [copied, setCopied] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const id = deviceId.trim();
+    if (!/^[a-z0-9][a-z0-9_-]*$/.test(id)) {
+      setError("Use letras minúsculas, números, hífen ou underscore; o ID deve começar com letra ou número.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      const response = await provisionDevice(id);
+      setResult({ mqttUsername: response.mqttUsername, mqttPassword: response.mqttPassword });
+      void refreshDevices();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível cadastrar o dispositivo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyCredentials = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(
+        "#define MQTT_USERNAME \"" + result.mqttUsername + "\"\n#define MQTT_PASSWORD \"" + result.mqttPassword + "\"",
+      );
+      setCopied(true);
+    } catch {
+      setError("Não foi possível copiar automaticamente. Copie o texto manualmente.");
+    }
+  };
+
+  if (result) {
+    return <><Heading title="Dispositivo provisionado" description="A credencial MQTT abaixo é exibida somente nesta tela. Copie-a agora; ela não será salva pelo gateway-web." />
+      <Card className="max-w-2xl"><p className="font-medium text-emerald-200">O gateway foi reiniciado para aplicar o novo dispositivo.</p>
+        <pre className="mt-5 overflow-x-auto rounded-lg border border-slate-700 bg-slate-950 p-4 text-sm text-cyan-100">{"#define MQTT_USERNAME \"" + result.mqttUsername + "\"\n#define MQTT_PASSWORD \"" + result.mqttPassword + "\""}</pre>
+        <div className="mt-5 flex flex-wrap gap-3"><Button onClick={() => void copyCredentials()}>{copied ? "Copiado" : "Copiar credentials"}</Button><Link to="/devices" className="button button-ghost">Voltar para dispositivos</Link></div>
+      </Card></>;
+  }
+
+  return <><Heading title="Novo dispositivo" description="Cadastre um ESP32 LED. O gateway criará a credencial MQTT, atualizará a configuração e reiniciará brevemente." action={<Link to="/devices" className="button button-ghost">Voltar</Link>} />
+    <Card className="max-w-xl"><form onSubmit={(event) => void submit(event)} className="space-y-5"><div><label htmlFor="device-id" className="mb-2 block text-sm font-medium text-slate-200">ID do dispositivo</label><input id="device-id" autoFocus value={deviceId} onChange={(event) => setDeviceId(event.target.value)} placeholder="esp32-led-3" className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" /><p className="mt-2 text-xs text-slate-500">Template: ESP32 LED. Será criado somente o tópico de comando.</p></div>
+      {error ? <p className="rounded-lg border border-rose-900 bg-rose-950/40 p-3 text-sm text-rose-200">{error}</p> : null}
+      <Button type="submit" disabled={submitting}>{submitting ? "Provisionando…" : "Cadastrar e provisionar"}</Button></form></Card></>;
+}
+
+function DeviceSettings() {
+  const { deviceId } = useParams({ from: "/devices/$deviceId/settings" });
+  const { devices, refreshDevices } = useGateway();
+  const device = devices.data?.find((item) => item.id === deviceId);
+  const [enabled, setEnabled] = useState(device?.enabled ?? false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string>();
+
+  useEffect(() => { if (device) setEnabled(device.enabled); }, [device]);
+  if (!device) return <Card><p className="text-rose-200">Dispositivo não encontrado. Atualize a lista e tente novamente.</p></Card>;
+
+  const save = async () => {
+    setSubmitting(true);
+    setMessage(undefined);
+    try {
+      const response = await setDeviceEnabled(device.id, enabled);
+      setEnabled(response.device.enabled);
+      setMessage("Alteração aplicada. O gateway foi reiniciado brevemente.");
+      void refreshDevices();
+    } catch (requestError) {
+      setMessage(requestError instanceof Error ? requestError.message : "Não foi possível alterar o dispositivo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return <><Heading title={"Configurações: " + device.id} description="Alterar esta opção reinicia brevemente o gateway para aplicar a configuração." action={<Link to="/devices/$deviceId" params={{ deviceId }} className="button button-ghost">Voltar</Link>} />
+    <Card className="max-w-xl"><label className="flex cursor-pointer items-center justify-between gap-4"><span><span className="block font-medium text-white">Dispositivo habilitado</span><span className="mt-1 block text-sm text-slate-400">Um dispositivo desabilitado permanece cadastrado, mas deixa de participar do roteamento.</span></span><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /></label>
+      {message ? <p className="mt-5 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200">{message}</p> : null}
+      <div className="mt-5"><Button disabled={submitting || enabled === device.enabled} onClick={() => void save()}>{submitting ? "Aplicando…" : "Salvar alteração"}</Button></div></Card></>;
+}
+
+function RemoveDevice() {
+  const { deviceId } = useParams({ from: "/devices/$deviceId/remove" });
+  const { devices, refreshDevices } = useGateway();
+  const navigate = useNavigate();
+  const device = devices.data?.find((item) => item.id === deviceId);
+  const [confirmation, setConfirmation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+
+  if (!device) return <Card><p className="text-rose-200">Dispositivo não encontrado. Atualize a lista e tente novamente.</p></Card>;
+
+  const remove = async () => {
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      await removeDevice(device.id);
+      void refreshDevices();
+      await navigate({ to: "/devices" });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível remover o dispositivo.");
+      setSubmitting(false);
+    }
+  };
+
+  return <><Heading title={"Remover: " + device.id} description="Esta ação revoga a credencial MQTT, remove o dispositivo da configuração e reinicia brevemente o gateway." action={<Link to="/devices/$deviceId" params={{ deviceId }} className="button button-ghost">Cancelar</Link>} />
+    <Card className="max-w-xl border-rose-900"><p className="font-medium text-rose-200">Ação destrutiva</p><p className="mt-2 text-sm leading-6 text-slate-400">Digite <code className="text-rose-200">{device.id}</code> para confirmar a remoção definitiva.</p>
+      <input aria-label="Confirmar ID do dispositivo" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="mt-5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-rose-500" />
+      {error ? <p className="mt-4 rounded-lg border border-rose-900 bg-rose-950/40 p-3 text-sm text-rose-200">{error}</p> : null}
+      <div className="mt-5"><Button variant="danger" disabled={submitting || confirmation !== device.id} onClick={() => void remove()}>{submitting ? "Removendo…" : "Remover dispositivo"}</Button></div></Card></>;
 }
 
 function Queue() {
@@ -289,11 +407,14 @@ function Settings() {
 const rootRoute = createRootRoute({ component: Shell });
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Overview });
 const devicesRoute = createRoute({ getParentRoute: () => rootRoute, path: "devices", component: Devices });
+const newDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "new", component: NewDevice });
 const detailRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId", component: DeviceDetail });
+const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/settings", component: DeviceSettings });
+const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/remove", component: RemoveDevice });
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
-const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: Settings });
-const routeTree = rootRoute.addChildren([overviewRoute, devicesRoute.addChildren([detailRoute]), queueRoute, diagnosticsRoute, settingsRoute]);
+const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: Settings });
+const routeTree = rootRoute.addChildren([overviewRoute, devicesRoute.addChildren([newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]), queueRoute, diagnosticsRoute, appSettingsRoute]);
 const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {

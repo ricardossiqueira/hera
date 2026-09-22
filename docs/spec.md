@@ -135,9 +135,9 @@ monta `Authorization` nas chamadas; ela continua sem contas, sessoes nem RBAC.
 | `/` | Implementavel | Visao geral: Online/Offline, MQTT conectado, inicio/uptime, subscriptions, contadores de mensagens e outbox. Atualizar manualmente e polling a cada 10 s. |
 | `/devices` | Implementavel | Tabela sem busca/filtros: ID, tipo, profile, habilitado e topicos. Permite selecionar varios LEDs para ligar/desligar em lote. |
 | `/devices/$deviceId` | Implementavel para LED | ID, tipo, profile, habilitado e topicos. Se `profile=led.v1`, toggle imediato `set_led`. Outras profiles terao estado explicito de ainda nao suportadas. |
-| `/devices/new` | Futura API admin | Cadastro por template unico `ESP32 LED`; ID manual validado antes do envio. Mostra segredo uma vez apos sucesso. |
-| `/devices/$deviceId/settings` | Futura API admin | Alterar somente `enabled`, com confirmacao e aviso de reinicio breve. |
-| `/devices/$deviceId/remove` | Futura API admin | Dialogo destrutivo; exige digitar o ID e explica revogacao da credencial e restart. |
+| `/devices/new` | Implementavel | Cadastro por template unico `ESP32 LED`; ID manual validado antes do envio. Mostra segredo uma vez apos sucesso. |
+| `/devices/$deviceId/settings` | Implementavel | Alterar somente `enabled`, com confirmacao e aviso de reinicio breve. |
+| `/devices/$deviceId/remove` | Implementavel | Dialogo destrutivo; exige digitar o ID e explica revogacao da credencial e restart. |
 | `/queue` | Indisponivel inicialmente | Explica que a API atual so fornece contadores globais e que nao ha historico/itens para consultar. |
 | `/diagnostics` | Parcial | Replica contadores tecnicos de status e mostra erros de conectividade/validacao observados pela sessao do browser. |
 | `/settings` | Implementavel | Exibe a URL efetiva da API, derivada exclusivamente de ambiente; nao permite editar/persistir configuracao pela UI. |
@@ -173,12 +173,12 @@ mensagens da SQLite.
 
 ### 8.1 Administracao privilegiada
 
-O browser nunca deve coordenar escrita de YAML, alteracao de Mosquitto ou
-`systemctl`. A futura `DeviceAdminService` roda em processo privilegiado,
-reutilizando a logica administrativa do gateway, e expoe operacoes de alto
-nivel na mesma porta publica `:8082`.
+O browser nunca coordena escrita de YAML, alteracao de Mosquitto ou
+`systemctl`. A `DeviceAdminService` roda em processo privilegiado,
+reutiliza a logica administrativa do gateway e expoe operacoes de alto nivel
+na mesma porta publica `:8082`.
 
-Contrato alvo a discutir/implementar no `iot-gateway`:
+Contrato implementado no `iot-gateway`:
 
 ```proto
 service DeviceAdminService {
@@ -226,21 +226,13 @@ interrupcao do gateway.
 
 ### 8.2 Uma porta publica e dois niveis de privilegio
 
-Hoje o processo sandboxed do gateway atende `:8082`; o processo admin roda
-separado e e root. Dois processos nao podem escutar a mesma porta. Para cumprir
-a decisao de uma porta publica, uma iteracao de `iot-gateway` deve definir um
-compositor de API, preferencialmente:
+O compositor de API ja atende a porta LAN `:8082`: ele roda com os privilegios
+necessarios para `DeviceAdminService` e encaminha as RPCs operacionais para o
+processo sandboxed por loopback. Assim, a mesma autenticacao Basic e a mesma
+politica CORS envolvem todos os servicos publicos.
 
-1. um front-end/root API escuta a porta LAN `:8082`;
-2. os handlers operacionais continuam no processo sandboxed, acessiveis ao
-   compositor por loopback ou socket Unix;
-3. o compositor encaminha `DeviceService` e `GatewayService` e atende
-   `DeviceAdminService` com os privilegios necessarios;
-4. Basic Auth e CORS envolvem o mux publico inteiro.
-
-Essa composicao e uma decisao arquitetural a implementar antes da migracao
-administrativa. A UI 8081 nao sera removida ate ela, as RPCs e seus testes de
-rollback estarem prontas e validadas no Orange Pi.
+A UI 8081 continua como contingencia ate a validacao fim a fim das rotas
+administrativas no Orange Pi e dos fluxos de rollback/reinicio.
 
 ### 8.3 Observabilidade e fila
 
@@ -265,9 +257,9 @@ operacional por device.
 | Visao geral e diagnostico basico | `GetStatus` | Nenhuma | 1 |
 | Lista e detalhe configuracional | `ListDevices` | Nenhuma | 1 |
 | Toggle e lote de LED | `ListDeviceCommands`, `PublishCommand` | Nenhuma | 1 |
-| Cadastro LED e segredo unico | Nao | `ProvisionDevice` | 2 |
-| Alterar enabled | Nao | `SetDeviceEnabled` | 2 |
-| Remover e revogar credencial | Nao | `RemoveDevice` | 2 |
+| Cadastro LED e segredo unico | `DeviceAdminService.ProvisionDevice` | Nenhuma | 2 |
+| Alterar enabled | `DeviceAdminService.SetDeviceEnabled` | Nenhuma | 2 |
+| Remover e revogar credencial | `DeviceAdminService.RemoveDevice` | Nenhuma | 2 |
 | Fila, falhas e payloads | Somente contadores globais | API de observabilidade/read model | 3 |
 | Confirmacao de execucao | Nao | Correlacao de `command_result` | Posterior |
 | Outros profiles/formularios dinamicos | Descriptor ja existe | Metadados UX adicionais se necessarios | Posterior |
@@ -289,10 +281,10 @@ operacional por device.
 - Usar somente as quatro RPCs existentes.
 - Adicionar testes unitarios, de componentes e de integracao da camada HTTP.
 
-### Marco 2 — API administrativa e migracao gradual
+### Marco 2 — Integracao administrativa e migracao gradual
 
-- Projetar e implementar `DeviceAdminService`, a composicao da porta publica
-  e testes de rollback no `iot-gateway`.
+- Integrar `ProvisionDevice`, `SetDeviceEnabled` e `RemoveDevice` ao
+  `gateway-web`, incluindo mensagens distintas para os codigos Connect.
 - Entregar cadastro LED, segredo de exibicao unica, habilitar/desabilitar e
   remocao no `gateway-web`.
 - Validar fim a fim no Orange Pi real.
@@ -341,4 +333,3 @@ operacional por device.
 - Remocao exige que o operador digite o ID correto.
 - A UI 8081 so e removida depois de teste fim a fim de cadastro, enable/disable,
   remocao, rollback e recuperacao apos reinicio.
-
