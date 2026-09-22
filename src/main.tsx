@@ -408,7 +408,10 @@ function Settings() {
 
 const rootRoute = createRootRoute({ component: Shell });
 const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Overview });
-const devicesRoute = createRoute({ getParentRoute: () => rootRoute, path: "devices", component: Devices });
+// /devices is a layout route. Its children need this Outlet; otherwise a Link
+// changes the URL but the list component keeps rendering over every child.
+const devicesRoute = createRoute({ getParentRoute: () => rootRoute, path: "devices", component: Outlet });
+const devicesIndexRoute = createRoute({ getParentRoute: () => devicesRoute, path: "/", component: Devices });
 const newDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "new", component: NewDevice });
 const detailRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId", component: DeviceDetail });
 const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/settings", component: DeviceSettings });
@@ -416,7 +419,7 @@ const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: Settings });
-const routeTree = rootRoute.addChildren([overviewRoute, devicesRoute.addChildren([newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]), queueRoute, diagnosticsRoute, appSettingsRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, devicesRoute.addChildren([devicesIndexRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]), queueRoute, diagnosticsRoute, appSettingsRoute]);
 const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {
