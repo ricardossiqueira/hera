@@ -232,8 +232,7 @@ processo sandboxed por loopback. Assim, a mesma autenticacao Basic e a mesma
 politica CORS envolvem todos os servicos publicos.
 
 As rotas administrativas foram validadas fim a fim no Orange Pi em
-21/09/2026. A UI 8081 nao e mais uma contingencia necessaria; sua remocao
-controlada pertence ao Marco 4.
+21/09/2026. A UI 8081 foi removida em 22/09/2026 (Marco 4).
 
 ### 8.3 Observabilidade e fila
 
@@ -289,7 +288,7 @@ operacional por device.
 - Cadastro LED, segredo de exibicao unica, habilitar/desabilitar e remocao foram
   entregues e validados fim a fim no Orange Pi real.
 - Os criterios de aceite administrativos abaixo foram atendidos. A retirada da
-  UI 8081 segue como trabalho explicito do Marco 4.
+  UI 8081 foi concluida no Marco 4.
 
 ### Marco 3 — Observabilidade historica
 
@@ -297,11 +296,19 @@ operacional por device.
 - Substituir o estado indisponivel de `/queue` por resumo, lista e detalhes.
 - Evoluir `/diagnostics` para falhas por device e periodo.
 
-### Marco 4 — Aposentadoria de 8081
+### Marco 4 — Aposentadoria de 8081 (concluido em 22/09/2026)
 
-- Migrar a operacao cotidiana para `gateway-web`.
-- Remover templates, handlers, servico e porta da antiga webview.
-- Atualizar documentacao, deploy e runbooks sem referencia ao painel HTML.
+- Operacao cotidiana migrada para `gateway-web`.
+- `internal/admin` (lado `iot-gateway`) perdeu templates, handlers HTTP,
+  Post/Redirect/Get e a porta 8081 - virou so o motor que
+  `DeviceAdminService` ja consumia (ADR-015 em `docs/decisions.md` do
+  `iot-gateway`). `iot-gateway-admin.service` continua existindo (ainda
+  root, ainda a borda publica da API), so sem HTML proprio - sem `api:`
+  configurado, agora recusa iniciar.
+- Documentacao, deploy e runbooks do `iot-gateway` atualizados sem
+  referencia ao painel HTML (`deploy/README.md`, `docs/api-v1.md`,
+  `docs/security.md`, `docs/device-onboarding.md`,
+  `docs/mosquitto-device-provisioning.md`).
 
 ## 10. Criterios de aceite
 
@@ -332,5 +339,14 @@ operacional por device.
 - Habilitar/desabilitar e remover reiniciam o gateway como parte do sucesso.
 - Remocao exige que o operador digite o ID correto.
 - A validacao fim a fim de cadastro, enable/disable, remocao, rollback e
-  recuperacao apos reinicio foi concluida. A remocao da UI 8081 fica no
-  escopo do Marco 4.
+  recuperacao apos reinicio foi concluida. A remocao da UI 8081 foi feita
+  no Marco 4.
+
+### Marco 4 (concluido em 22/09/2026)
+
+- `iot-gateway-admin.service` nao serve mais HTML/templates; confirmado que
+  a porta 8081 nao aceita mais conexoes.
+- `gateway-web` continua operando `ProvisionDevice`/`SetDeviceEnabled`/
+  `RemoveDevice` sem nenhuma mudanca de cliente - a remocao foi transparente.
+- Documentacao e deploy do `iot-gateway` atualizados sem referencia ao
+  painel HTML.
