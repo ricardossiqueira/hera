@@ -8,6 +8,7 @@ import { DeviceSettings } from "@/pages/devices/settings";
 import { Diagnostics } from "@/pages/diagnostics";
 import { Overview } from "@/pages/overview";
 import { Queue } from "@/pages/queue";
+import { Routes } from "@/pages/routes";
 import { AppSettings } from "@/pages/settings";
 
 const rootRoute = createRootRoute({ component: AppShell });
@@ -21,6 +22,7 @@ const detailRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$de
 const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/settings", component: DeviceSettings });
 const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/remove", component: RemoveDevice });
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
+const routesRoute = createRoute({ getParentRoute: () => rootRoute, path: "routes", component: Routes });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: AppSettings });
 
@@ -28,6 +30,7 @@ const routeTree = rootRoute.addChildren([
   overviewRoute,
   devicesRoute.addChildren([devicesIndexRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]),
   queueRoute,
+  routesRoute,
   diagnosticsRoute,
   appSettingsRoute,
 ]);

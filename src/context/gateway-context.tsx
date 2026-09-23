@@ -1,6 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { type Device, type GatewayStatus, getStatus, listDeviceCommands, listDevices } from "@/api/gateway";
+import { type Device, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getStatus, listDeviceCommands, listDevices } from "@/api/gateway";
+
+// orangepi-monitor's device_id is fixed - configs/config.example.yaml
+// doesn't make it configurable, and it's the same ID the "Registrar
+// dispositivo existente" flow in pages/devices/new.tsx uses.
+const ORANGE_PI_DEVICE_ID = "orangepi-monitor";
+
+// Not registered yet is not an error (docs/api-v1.md's GetDeviceTelemetry:
+// an unknown device_id is the only InvalidArgument this call can produce),
+// so it resolves to available:false instead of throwing - same "não inventa
+// dados" spirit as the Queue page, and keeps a fresh install from spamming
+// the issues popover/toast every 10s poll before the device is registered.
+async function loadOrangePiTelemetry(): Promise<DeviceTelemetry> {
+  try {
+    return await getDeviceTelemetry(ORANGE_PI_DEVICE_ID);
+  } catch (error) {
+    if (error instanceof GatewayApiError && error.code === "invalid_argument") {
+      return { deviceId: ORANGE_PI_DEVICE_ID, available: false };
+    }
+    throw error;
+  }
+}
 
 export type Resource<T> = { data?: T; error?: string; loading: boolean; updatedAt?: Date };
 
@@ -9,6 +30,7 @@ export type Issue = { id: number; message: string; at: Date };
 type GatewayContextValue = {
   status: Resource<GatewayStatus>;
   devices: Resource<Device[]>;
+  orangePiTelemetry: Resource<DeviceTelemetry>;
   refreshStatus: () => Promise<void>;
   refreshDevices: () => Promise<void>;
   reportError: (message: string) => void;
@@ -50,6 +72,7 @@ let nextIssueId = 0;
 export function GatewayProvider({ children }: { children: ReactNode }) {
   const [status, refreshStatus] = useResource(getStatus);
   const [devices, refreshDevices] = useResource(listDevices);
+  const [orangePiTelemetry] = useResource(loadOrangePiTelemetry);
   const [issues, setIssues] = useState<Issue[]>([]);
 
   // Feeds both the header's issues popover (persistent history for this tab)
@@ -63,7 +86,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (status.error) reportError("Status: " + status.error); }, [reportError, status.error]);
   useEffect(() => { if (devices.error) reportError("Dispositivos: " + devices.error); }, [devices.error, reportError]);
 
-  const value: GatewayContextValue = { status, devices, refreshStatus, refreshDevices, reportError, issues };
+  const value: GatewayContextValue = { status, devices, orangePiTelemetry, refreshStatus, refreshDevices, reportError, issues };
   return <GatewayContext.Provider value={value}>{children}</GatewayContext.Provider>;
 }
 

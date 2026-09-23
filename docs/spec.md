@@ -52,7 +52,7 @@ WireGuard. A migracao para VPS nao faz parte deste escopo.
 | Diagnostico | Cartoes tecnicos e erros de chamadas da API; sem falhas persistidas por device por enquanto. |
 | Fila/historico | Rota visivel, em modo indisponivel com explicacao ate as futuras RPCs. A diretriz de sete dias fica adiada. |
 | Administracao | Cadastro por template `ESP32 LED`, edicao apenas de `enabled`, remocao com confirmacao digitando o ID. |
-| Provisionamento | Operacao atomica: credencial + configuracao + restart. Falha parcial exige rollback automatico. |
+| Provisionamento | Operacao versionada: credencial + registry SQLite; a politica MQTT e aplicada sem restart. Falha parcial exige reconciliacao. |
 | Segredo MQTT | Exibir `secrets.h` e senha exatamente uma vez, com botao de copia. |
 
 ## 4. Stack proposta
@@ -136,8 +136,8 @@ monta `Authorization` nas chamadas; ela continua sem contas, sessoes nem RBAC.
 | `/devices` | Implementavel | Tabela sem busca/filtros: ID, tipo, profile, habilitado e topicos. Permite selecionar varios LEDs para ligar/desligar em lote. |
 | `/devices/$deviceId` | Implementavel para LED | ID, tipo, profile, habilitado e topicos. Se `profile=led.v1`, toggle imediato `set_led`. Outras profiles terao estado explicito de ainda nao suportadas. |
 | `/devices/new` | Implementavel | Cadastro por template unico `ESP32 LED`; ID manual validado antes do envio. Mostra segredo uma vez apos sucesso. |
-| `/devices/$deviceId/settings` | Implementavel | Alterar somente `enabled`, com confirmacao e aviso de reinicio breve. |
-| `/devices/$deviceId/remove` | Implementavel | Dialogo destrutivo; exige digitar o ID e explica revogacao da credencial e restart. |
+| `/devices/$deviceId/settings` | Implementavel | Alterar somente `enabled`, com confirmacao; a politica e aplicada sem reiniciar o gateway. |
+| `/devices/$deviceId/remove` | Implementavel | Dialogo destrutivo; exige digitar o ID e explica revogacao da credencial. |
 | `/queue` | Indisponivel inicialmente | Explica que a API atual so fornece contadores globais e que nao ha historico/itens para consultar. |
 | `/diagnostics` | Parcial | Replica contadores tecnicos de status e mostra erros de conectividade/validacao observados pela sessao do browser. |
 | `/settings` | Implementavel | Exibe a URL efetiva da API, derivada exclusivamente de ambiente; nao permite editar/persistir configuracao pela UI. |
@@ -196,7 +196,7 @@ message ProvisionDeviceResponse {
   Device device = 1;
   string mqtt_username = 2;
   string mqtt_password = 3; // segredo de exibicao unica; nunca registrar
-  google.protobuf.Timestamp restarted_at = 4;
+  google.protobuf.Timestamp applied_at = 4;
 }
 
 message SetDeviceEnabledRequest {
@@ -206,11 +206,11 @@ message SetDeviceEnabledRequest {
 
 message SetDeviceEnabledResponse {
   Device device = 1;
-  google.protobuf.Timestamp restarted_at = 2;
+  google.protobuf.Timestamp applied_at = 2;
 }
 
 message RemoveDeviceRequest { string device_id = 1; }
-message RemoveDeviceResponse { google.protobuf.Timestamp restarted_at = 1; }
+message RemoveDeviceResponse { google.protobuf.Timestamp applied_at = 1; }
 ```
 
 O template `esp32_led.v1` cria `type: esp32`, `profile: led.v1`, `enabled:
@@ -218,11 +218,10 @@ true` e somente o topico `devices/<id>/command` nesta primeira fase. A API
 deve rejeitar IDs invalidos ou duplicados e nunca criar device sem profile.
 
 `ProvisionDevice` e `RemoveDevice` sao transacoes operacionais. Em falha, a
-implementacao deve compensar os efeitos ja aplicados: restaurar o YAML/backup
-e, se necessario, remover ou restaurar a credencial/ACL MQTT. A resposta de
-erro deve identificar a etapa que falhou sem vazar segredo. O restart faz parte
-do sucesso e deve ser automatico; a UI avisa antes que pode haver breve
-interrupcao do gateway.
+implementacao deve registrar uma operacao recuperavel no registry SQLite e
+reconciliar os efeitos ja aplicados. A resposta de erro deve identificar a
+etapa que falhou sem vazar segredo. A politica MQTT e aplicada sem reiniciar o
+gateway.
 
 ### 8.2 Uma porta publica e dois niveis de privilegio
 

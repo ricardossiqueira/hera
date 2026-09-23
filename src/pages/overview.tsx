@@ -1,11 +1,60 @@
-import { Activity, Inbox, Radio, RefreshCw } from "lucide-react";
+import { Activity, Cpu, Inbox, Radio, RefreshCw, Thermometer } from "lucide-react";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGateway } from "@/context/gateway-context";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber, formatUptime } from "@/lib/format";
+
+function OrangePiCard() {
+  const { orangePiTelemetry } = useGateway();
+  const telemetry = orangePiTelemetry.data;
+
+  // Not registered yet, or no reading since the gateway started: this is
+  // not an error (see gateway-context's loadOrangePiTelemetry), so the
+  // card simply doesn't render instead of showing a scary empty state.
+  if (!telemetry?.available || !telemetry.payload) {
+    if (orangePiTelemetry.loading && !telemetry) {
+      return <Skeleton className="h-40" />;
+    }
+    return null;
+  }
+
+  const { payload } = telemetry;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Cpu className="size-4" /> Orange Pi</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">CPU</span><span>{payload.cpu_pct?.toFixed(1) ?? "—"}%</span></div>
+            <Progress value={payload.cpu_pct ?? 0} />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Memória</span><span>{formatNumber(payload.memory_used_mb)} / {formatNumber(payload.memory_total_mb)} MB</span></div>
+            <Progress value={payload.memory_total_mb ? (100 * (payload.memory_used_mb ?? 0)) / payload.memory_total_mb : 0} />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Disco</span><span>{payload.disk_used_pct?.toFixed(1) ?? "—"}%</span></div>
+            <Progress value={payload.disk_used_pct ?? 0} />
+          </div>
+        </div>
+        <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div><dt className="text-muted-foreground">Carga (1 min)</dt><dd className="mt-0.5">{payload.load_1?.toFixed(2) ?? "—"}</dd></div>
+          {payload.temperature_c !== undefined ? (
+            <div><dt className="flex items-center gap-1 text-muted-foreground"><Thermometer className="size-3.5" /> Temperatura</dt><dd className="mt-0.5">{payload.temperature_c.toFixed(1)} °C</dd></div>
+          ) : null}
+          <div><dt className="text-muted-foreground">Uptime</dt><dd className="mt-0.5">{formatUptime(payload.uptime_s)}</dd></div>
+          <div><dt className="text-muted-foreground">Última leitura</dt><dd className="mt-0.5">{formatDate(telemetry.observedAt)}</dd></div>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Overview() {
   const { status, refreshStatus } = useGateway();
@@ -85,6 +134,7 @@ export function Overview() {
               </dl>
             </CardContent>
           </Card>
+          <div className="mt-4"><OrangePiCard /></div>
         </>
       ) : null}
     </>

@@ -45,16 +45,62 @@ export interface ProvisionDeviceResponse {
   device: Device;
   mqttUsername: string;
   mqttPassword: string;
-  restartedAt: string;
+  appliedAt: string;
 }
 
 export interface SetDeviceEnabledResponse {
   device: Device;
-  restartedAt: string;
+  appliedAt: string;
+}
+
+export interface ProvisionCYDResponse {
+  device: Device;
+  deviceIp: string;
+  appliedAt: string;
+}
+
+export interface RegisterExistingDeviceResponse {
+  device: Device;
+  appliedAt: string;
 }
 
 export interface RemoveDeviceResponse {
-  restartedAt: string;
+  appliedAt: string;
+}
+
+export interface Route {
+  id: string;
+  sourceTopic: string;
+  destinationTopic: string;
+  commandType: string;
+  qos: number;
+  retain: boolean;
+}
+
+export interface CreateRouteResponse {
+  route: Route;
+  appliedAt: string;
+}
+
+// OrangePiTelemetry mirrors orangepi-monitor's payload
+// (internal/metrics/payload.go): cpu_pct, memory_used_mb, memory_total_mb,
+// disk_used_pct, load_1, temperature_c?, uptime_s, plus message_id/timestamp
+// that GetDeviceTelemetryResponse already surfaces separately as observedAt.
+export interface OrangePiTelemetry {
+  cpu_pct?: number;
+  memory_used_mb?: number;
+  memory_total_mb?: number;
+  disk_used_pct?: number;
+  load_1?: number;
+  temperature_c?: number;
+  uptime_s?: number;
+}
+
+export interface DeviceTelemetry {
+  deviceId: string;
+  available: boolean;
+  payload?: OrangePiTelemetry;
+  observedAt?: string;
 }
 
 export class GatewayApiError extends Error {
@@ -149,6 +195,14 @@ export function listDeviceCommands(deviceId: string): Promise<ListDeviceCommands
   return request(deviceService + "/ListDeviceCommands", { deviceId });
 }
 
+// getDeviceTelemetry never throws for "nothing received yet" - the gateway
+// answers available:false, not an error (see docs/api-v1.md's "Telemetria
+// em cache"). It still throws GatewayApiError for an unknown device_id or a
+// transport/auth failure, same as every other call here.
+export function getDeviceTelemetry(deviceId: string): Promise<DeviceTelemetry> {
+  return request(deviceService + "/GetDeviceTelemetry", { deviceId });
+}
+
 export function publishSetLed(deviceId: string, on: boolean) {
   return request<{ commandId: string; publishedAt: string }>(
     deviceService + "/PublishCommand",
@@ -163,6 +217,21 @@ export function provisionDevice(
   return request(deviceAdminService + "/ProvisionDevice", { deviceId, template });
 }
 
+// ProvisionCYD never receives MQTT credentials in the browser. The gateway
+// delivers them directly to the CYD's temporary first-boot endpoint.
+export function provisionCYD(deviceId: string, deviceIp: string): Promise<ProvisionCYDResponse> {
+  return request(deviceAdminService + "/ProvisionCYD", { deviceId, deviceIp });
+}
+
+// RegisterExistingDevice adopts a known local broker identity. Unlike device
+// provisioning, it neither receives nor rotates an MQTT password.
+export function registerExistingDevice(
+  deviceId: string,
+  template = "orangepi_monitor.v1",
+): Promise<RegisterExistingDeviceResponse> {
+  return request(deviceAdminService + "/RegisterExistingDevice", { deviceId, template });
+}
+
 export function setDeviceEnabled(
   deviceId: string,
   enabled: boolean,
@@ -172,4 +241,17 @@ export function setDeviceEnabled(
 
 export function removeDevice(deviceId: string): Promise<RemoveDeviceResponse> {
   return request(deviceAdminService + "/RemoveDevice", { deviceId });
+}
+
+export async function listRoutes(): Promise<Route[]> {
+  const result = await request<{ routes?: Route[] }>(deviceAdminService + "/ListRoutes", {});
+  return result.routes ?? [];
+}
+
+export function createRoute(route: Route): Promise<CreateRouteResponse> {
+  return request(deviceAdminService + "/CreateRoute", { route });
+}
+
+export function removeRoute(routeId: string): Promise<{ appliedAt: string }> {
+  return request(deviceAdminService + "/RemoveRoute", { routeId });
 }

@@ -2,8 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getStatus,
   GatewayApiError,
+  createRoute,
+  listRoutes,
   listDeviceCommands,
   provisionDevice,
+  provisionCYD,
+  registerExistingDevice,
   removeDevice,
   setDeviceEnabled,
 } from "./gateway";
@@ -84,7 +88,7 @@ describe("DeviceAdminService", () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       device: { id: "led-3", type: "esp32", enabled: true, profile: "led.v1" },
-      mqttUsername: "led-3", mqttPassword: "generated-secret", restartedAt: "2026-09-21T23:00:00Z",
+      mqttUsername: "led-3", mqttPassword: "generated-secret", appliedAt: "2026-09-21T23:00:00Z",
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -95,18 +99,66 @@ describe("DeviceAdminService", () => {
     );
   });
 
+  it("provisiona um CYD pelo IP sem receber senha MQTT no navegador", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      device: { id: "cyd-sala", type: "esp32-cyd", enabled: true },
+      deviceIp: "192.168.15.42", appliedAt: "2026-09-23T14:00:00Z",
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await provisionCYD("cyd-sala", "192.168.15.42");
+    expect(response.deviceIp).toBe("192.168.15.42");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionCYD",
+      expect.objectContaining({ body: JSON.stringify({ deviceId: "cyd-sala", deviceIp: "192.168.15.42" }) }),
+    );
+  });
+
+  it("adota o orangepi-monitor sem receber nem rotacionar senha MQTT", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      device: { id: "orangepi-monitor", type: "linux-system-monitor", enabled: true }, appliedAt: "2026-09-23T18:00:00Z",
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(registerExistingDevice("orangepi-monitor")).resolves.toMatchObject({ device: { id: "orangepi-monitor" } });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/RegisterExistingDevice",
+      expect.objectContaining({ body: JSON.stringify({ deviceId: "orangepi-monitor", template: "orangepi_monitor.v1" }) }),
+    );
+  });
+
   it("chama as operacoes de enabled e remocao", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ device: { id: "led-1", enabled: false } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ restartedAt: "2026-09-21T23:00:00Z" }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ appliedAt: "2026-09-21T23:00:00Z" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await setDeviceEnabled("led-1", false);
     await removeDevice("led-1");
     expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/SetDeviceEnabled");
     expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/RemoveDevice");
+  });
+
+  it("lista e cria rotas persistidas", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const route = {
+      id: "orangepi-to-monitor", sourceTopic: "devices/orangepi-monitor/telemetry",
+      destinationTopic: "devices/monitor/command", commandType: "render_system_status", qos: 1, retain: false,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ routes: [route] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ route, appliedAt: "2026-09-23T18:00:00Z" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listRoutes()).resolves.toEqual([route]);
+    await expect(createRoute(route)).resolves.toMatchObject({ route });
+    expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListRoutes");
+    expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateRoute");
   });
 
   it("traduz o codigo Connect already_exists para uma mensagem acionavel", async () => {
