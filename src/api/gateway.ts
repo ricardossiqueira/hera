@@ -104,6 +104,12 @@ export interface DeviceManifest {
   createdAt: string;
 }
 
+export interface DeviceManifestBinding {
+	deviceId: string;
+	manifestId: string;
+	manifestRevision: string;
+}
+
 // Inconsistency mirrors iot-gateway's registry.Inconsistency (see
 // docs/api-v1.md's "Inconsistências de provisionamento"): a provisioning
 // operation whose best-effort compensation (rollback) itself failed, left
@@ -361,7 +367,12 @@ export async function listDeviceManifests(): Promise<DeviceManifest[]> {
 }
 
 export function getDeviceManifest(manifestId: string): Promise<{ manifest: DeviceManifest }> {
-  return request(deviceAdminService + "/GetDeviceManifest", { manifestId });
+	return request(deviceAdminService + "/GetDeviceManifest", { manifestId });
+}
+
+export async function listDeviceManifestBindings(): Promise<DeviceManifestBinding[]> {
+	const result = await request<{ bindings?: DeviceManifestBinding[] }>(deviceAdminService + "/ListDeviceManifestBindings", {});
+	return result.bindings ?? [];
 }
 
 export function createDeviceManifestDraft(documentJson: string): Promise<{ manifest: DeviceManifest }> {

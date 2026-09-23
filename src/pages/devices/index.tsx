@@ -17,11 +17,12 @@ function isSelectableLed(device: Device) {
 }
 
 export function Devices() {
-  const { devices, refreshDevices, reportError } = useGateway();
+  const { devices, manifestBindings, refreshDevices, reportError } = useGateway();
   const [selected, setSelected] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
 
   const leds = (devices.data ?? []).filter(isSelectableLed);
+  const bindingsByDevice = new Map((manifestBindings.data ?? []).map((binding) => [binding.deviceId, binding]));
   const toggleSelected = (id: string) =>
     setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
 
@@ -85,13 +86,15 @@ export function Devices() {
                   <TableHead>ID</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Profile</TableHead>
+                  <TableHead>Manifest</TableHead>
                   <TableHead>Habilitado</TableHead>
                   <TableHead>Tópicos</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {devices.data.map((device) => (
-                  <TableRow key={device.id}>
+                {devices.data.map((device) => {
+                  const binding = bindingsByDevice.get(device.id);
+                  return <TableRow key={device.id}>
                     <TableCell>
                       {isSelectableLed(device) ? (
                         <Checkbox
@@ -108,16 +111,18 @@ export function Devices() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{device.type}</TableCell>
                     <TableCell className="text-muted-foreground">{device.profile || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{binding ? `${binding.manifestId} · r${binding.manifestRevision}` : "Legado"}</TableCell>
                     <TableCell><Badge variant={device.enabled ? "success" : "outline"}>{device.enabled ? "Sim" : "Não"}</Badge></TableCell>
                     <TableCell className="text-muted-foreground">{Object.values(device.topics ?? {}).filter(Boolean).length}</TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>;
+                })}
               </TableBody>
             </Table>
           </Card>
           <div className="grid gap-3 md:hidden">
-            {devices.data.map((device) => (
-              <Card key={device.id}>
+            {devices.data.map((device) => {
+              const binding = bindingsByDevice.get(device.id);
+              return <Card key={device.id}>
                 <CardContent className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     {isSelectableLed(device) ? (
@@ -133,13 +138,14 @@ export function Devices() {
                         {device.id}
                       </Link>
                       <p className="mt-1 text-sm text-muted-foreground">{device.type} · {device.profile || "sem profile"}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{binding ? `Manifest: ${binding.manifestId} · r${binding.manifestRevision}` : "Manifest: legado"}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{Object.values(device.topics ?? {}).filter(Boolean).length} tópico(s)</p>
                     </div>
                   </div>
                   <Badge variant={device.enabled ? "success" : "outline"}>{device.enabled ? "Habilitado" : "Desabilitado"}</Badge>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>;
+            })}
           </div>
         </>
       ) : null}

@@ -10,8 +10,9 @@ import { useDeviceCommands, useGateway } from "@/context/gateway-context";
 
 export function DeviceDetail() {
   const { deviceId } = useParams({ from: "/devices/$deviceId" });
-  const { devices, reportError } = useGateway();
+  const { devices, manifestBindings, reportError } = useGateway();
   const device = devices.data?.find((item) => item.id === deviceId);
+  const binding = manifestBindings.data?.find((item) => item.deviceId === deviceId);
   const commands = useDeviceCommands(device?.profile === "led.v1" ? device.id : undefined);
   const [sending, setSending] = useState(false);
 
@@ -64,6 +65,7 @@ export function DeviceDetail() {
             <dl className="grid gap-4 text-sm">
               <div><dt className="text-muted-foreground">Tipo</dt><dd className="mt-0.5">{device.type}</dd></div>
               <div><dt className="text-muted-foreground">Profile</dt><dd className="mt-0.5">{device.profile || "Não definido"}</dd></div>
+              <div><dt className="text-muted-foreground">Manifest provisionado</dt><dd className="mt-0.5">{binding ? `${binding.manifestId} · revisão ${binding.manifestRevision}` : manifestBindings.loading ? "Carregando…" : "Legado / sem manifest"}</dd></div>
               <div><dt className="text-muted-foreground">Habilitado</dt><dd className="mt-0.5">{device.enabled ? "Sim" : "Não"}</dd></div>
               <div><dt className="text-muted-foreground">Tópico de comando</dt><dd className="mt-0.5 break-all">{device.topics?.command || "Não configurado"}</dd></div>
             </dl>

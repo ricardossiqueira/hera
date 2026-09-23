@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { type Device, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
+import { type Device, type DeviceManifestBinding, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDeviceManifestBindings, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
 
 // orangepi-monitor's device_id is fixed - configs/config.example.yaml
 // doesn't make it configurable, and it's the same ID the "Registrar
@@ -30,6 +30,7 @@ export type Issue = { id: number; message: string; at: Date };
 type GatewayContextValue = {
   status: Resource<GatewayStatus>;
   devices: Resource<Device[]>;
+  manifestBindings: Resource<DeviceManifestBinding[]>;
   orangePiTelemetry: Resource<DeviceTelemetry>;
   queueSummary: Resource<QueueSummary>;
   inconsistencies: Resource<Inconsistency[]>;
@@ -75,11 +76,16 @@ let nextIssueId = 0;
 
 export function GatewayProvider({ children }: { children: ReactNode }) {
   const [status, refreshStatus] = useResource(getStatus);
-  const [devices, refreshDevices] = useResource(listDevices);
+  const [devices, refreshDeviceList] = useResource(listDevices);
+  const [manifestBindings, refreshManifestBindings] = useResource(listDeviceManifestBindings);
   const [orangePiTelemetry] = useResource(loadOrangePiTelemetry);
   const [queueSummary, refreshQueueSummary] = useResource(getQueueSummary);
   const [inconsistencies, refreshInconsistencies] = useResource(listInconsistencies);
   const [issues, setIssues] = useState<Issue[]>([]);
+
+  const refreshDevices = useCallback(async () => {
+    await Promise.all([refreshDeviceList(), refreshManifestBindings()]);
+  }, [refreshDeviceList, refreshManifestBindings]);
 
   // Feeds both the header's issues popover (persistent history for this tab)
   // and an immediate toast - see docs/spec.md decisions plus the redesign
@@ -95,7 +101,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (inconsistencies.error) reportError("Inconsistências: " + inconsistencies.error); }, [inconsistencies.error, reportError]);
 
   const value: GatewayContextValue = {
-    status, devices, orangePiTelemetry, queueSummary, inconsistencies,
+    status, devices, manifestBindings, orangePiTelemetry, queueSummary, inconsistencies,
     refreshStatus, refreshDevices, refreshQueueSummary, refreshInconsistencies,
     reportError, issues,
   };

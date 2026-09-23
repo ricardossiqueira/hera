@@ -8,6 +8,7 @@ import {
   provisionDevice,
   provisionCYD,
 	provisionDeviceByIP,
+	listDeviceManifestBindings,
   provisionLED,
   registerExistingDevice,
   removeDevice,
@@ -86,7 +87,23 @@ describe("listDeviceCommands", () => {
 });
 
 describe("DeviceAdminService", () => {
-  it("provisiona um LED e retorna a credencial de exibicao unica", async () => {
+	it("lista o manifest e a revisão usados em cada dispositivo", async () => {
+		vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+			bindings: [{ deviceId: "led-sala", manifestId: "esp32-c3-led", manifestRevision: "2" }],
+		}), { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(listDeviceManifestBindings()).resolves.toEqual([
+			{ deviceId: "led-sala", manifestId: "esp32-c3-led", manifestRevision: "2" },
+		]);
+		expect(fetchMock).toHaveBeenCalledWith(
+			"http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ListDeviceManifestBindings",
+			expect.objectContaining({ body: "{}" }),
+		);
+	});
+
+	it("provisiona um LED e retorna a credencial de exibicao unica", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       device: { id: "led-3", type: "esp32", enabled: true, profile: "led.v1" },
