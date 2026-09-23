@@ -109,6 +109,16 @@ export interface DeviceTelemetry {
   observedAt?: string;
 }
 
+// QueueSummary mirrors internal/outbox.Snapshot (see docs/api-v1.md's
+// "Resumo da fila"): pending state right now, not GetStatus's lifetime
+// outboxStored/Discarded/Failed counters. oldestEnqueuedAt is unset when
+// pendingMessages is 0.
+export interface QueueSummary {
+  pendingMessages: string;
+  pendingBytes: string;
+  oldestEnqueuedAt?: string;
+}
+
 export class GatewayApiError extends Error {
   constructor(
     message: string,
@@ -190,6 +200,10 @@ function errorMessage(code: string | undefined, fallback: string | undefined, st
 
 export function getStatus(): Promise<GatewayStatus> {
   return request(gatewayService + "/GetStatus", {});
+}
+
+export function getQueueSummary(): Promise<QueueSummary> {
+  return request(gatewayService + "/GetQueueSummary", {});
 }
 
 export async function listDevices(): Promise<Device[]> {

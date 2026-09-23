@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { type Device, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getStatus, listDeviceCommands, listDevices } from "@/api/gateway";
+import { type Device, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, listDeviceCommands, listDevices, type QueueSummary } from "@/api/gateway";
 
 // orangepi-monitor's device_id is fixed - configs/config.example.yaml
 // doesn't make it configurable, and it's the same ID the "Registrar
@@ -31,8 +31,10 @@ type GatewayContextValue = {
   status: Resource<GatewayStatus>;
   devices: Resource<Device[]>;
   orangePiTelemetry: Resource<DeviceTelemetry>;
+  queueSummary: Resource<QueueSummary>;
   refreshStatus: () => Promise<void>;
   refreshDevices: () => Promise<void>;
+  refreshQueueSummary: () => Promise<void>;
   reportError: (message: string) => void;
   issues: Issue[];
 };
@@ -73,6 +75,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   const [status, refreshStatus] = useResource(getStatus);
   const [devices, refreshDevices] = useResource(listDevices);
   const [orangePiTelemetry] = useResource(loadOrangePiTelemetry);
+  const [queueSummary, refreshQueueSummary] = useResource(getQueueSummary);
   const [issues, setIssues] = useState<Issue[]>([]);
 
   // Feeds both the header's issues popover (persistent history for this tab)
@@ -85,8 +88,9 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { if (status.error) reportError("Status: " + status.error); }, [reportError, status.error]);
   useEffect(() => { if (devices.error) reportError("Dispositivos: " + devices.error); }, [devices.error, reportError]);
+  useEffect(() => { if (queueSummary.error) reportError("Fila: " + queueSummary.error); }, [queueSummary.error, reportError]);
 
-  const value: GatewayContextValue = { status, devices, orangePiTelemetry, refreshStatus, refreshDevices, reportError, issues };
+  const value: GatewayContextValue = { status, devices, orangePiTelemetry, queueSummary, refreshStatus, refreshDevices, refreshQueueSummary, reportError, issues };
   return <GatewayContext.Provider value={value}>{children}</GatewayContext.Provider>;
 }
 
