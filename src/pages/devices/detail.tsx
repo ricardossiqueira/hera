@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Lightbulb, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { type CommandDescriptor, publishCommand, publishSetLed } from "@/api/gateway";
+import { migrateDeviceToManifest, type CommandDescriptor, publishCommand, publishSetLed } from "@/api/gateway";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,7 @@ export function DeviceDetail() {
   const binding = manifestBindings.data?.find((item) => item.deviceId === deviceId);
   const commands = useDeviceCommands(device?.topics?.command ? device.id : undefined);
   const [sending, setSending] = useState(false);
+  const [manifestId, setManifestId] = useState("");
 
   if (devices.loading && !devices.data) return <Card><CardContent>Carregando dispositivo…</CardContent></Card>;
   if (!device) {
@@ -71,6 +72,12 @@ export function DeviceDetail() {
     } finally {
       setSending(false);
     }
+  };
+
+  const migrate = async () => {
+    if (!manifestId) return;
+    try { await migrateDeviceToManifest(device.id, manifestId); toast.success("Dispositivo migrado para o manifest."); window.location.reload(); }
+    catch (error) { reportError(error instanceof Error ? error.message : "Falha ao migrar dispositivo."); }
   };
 
   return (
@@ -142,6 +149,10 @@ export function DeviceDetail() {
             </div>
           </CardContent>
         </Card>
+        {!binding && device.profile ? <Card className="lg:col-span-2"><CardHeader><CardTitle>Migrar profile legado</CardTitle></CardHeader><CardContent>
+          <p className="text-sm text-muted-foreground">Informe o ID de um manifest publicado compatível. A migração não altera MQTT nem NVS.</p>
+          <div className="mt-3 flex gap-2"><Input value={manifestId} onChange={(event) => setManifestId(event.target.value)} placeholder="esp32-c3-led" /><Button onClick={() => void migrate()}>Migrar</Button></div>
+        </CardContent></Card> : null}
       </div>
     </>
   );

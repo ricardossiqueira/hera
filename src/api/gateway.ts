@@ -353,6 +353,10 @@ export function removeDevice(deviceId: string): Promise<RemoveDeviceResponse> {
   return request(deviceAdminService + "/RemoveDevice", { deviceId });
 }
 
+export function migrateDeviceToManifest(deviceId: string, manifestId: string): Promise<{ device: Device; appliedAt: string }> {
+  return request(deviceAdminService + "/MigrateDeviceToManifest", { deviceId, manifestId });
+}
+
 export async function listRoutes(): Promise<Route[]> {
   const result = await request<{ routes?: Route[] }>(deviceAdminService + "/ListRoutes", {});
   return result.routes ?? [];
