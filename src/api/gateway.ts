@@ -128,12 +128,25 @@ export interface DeviceTelemetry {
 // outbox/fila above. kind is empty for a route_published/route_failed
 // outcome (a route spans two devices, not one).
 export interface GatewayEvent {
+  sequence: string;
   timestamp: string;
   deviceId: string;
   kind: string;
   topic: string;
   outcome: "accepted" | "rejected" | "route_published" | "route_failed";
   detail: string;
+}
+
+export interface RecentEventsFilter {
+  deviceId?: string;
+  since?: string;
+  limit?: number;
+  beforeSequence?: string;
+}
+
+export interface RecentEventsPage {
+  events: GatewayEvent[];
+  hasMore: boolean;
 }
 
 // QueueSummary mirrors internal/outbox.Snapshot (see docs/api-v1.md's
@@ -233,9 +246,14 @@ export function getQueueSummary(): Promise<QueueSummary> {
   return request(gatewayService + "/GetQueueSummary", {});
 }
 
-export async function getRecentEvents(): Promise<GatewayEvent[]> {
-  const result = await request<{ events?: GatewayEvent[] }>(gatewayService + "/GetRecentEvents", {});
-  return result.events ?? [];
+export async function getRecentEvents(filter: RecentEventsFilter = {}): Promise<RecentEventsPage> {
+  const result = await request<{ events?: GatewayEvent[]; hasMore?: boolean }>(gatewayService + "/GetRecentEvents", {
+    deviceId: filter.deviceId,
+    since: filter.since,
+    limit: filter.limit,
+    beforeSequence: filter.beforeSequence,
+  });
+  return { events: result.events ?? [], hasMore: result.hasMore ?? false };
 }
 
 export async function listDevices(): Promise<Device[]> {
