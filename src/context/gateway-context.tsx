@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { type Device, type DeviceManifestBinding, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDeviceManifestBindings, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
+import { type CommandDescriptor, type Device, type DeviceManifestBinding, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDeviceManifestBindings, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
 
 // orangepi-monitor's device_id is fixed - configs/config.example.yaml
 // doesn't make it configurable, and it's the same ID the "Registrar
@@ -115,7 +115,7 @@ export function useGateway() {
 }
 
 export function useDeviceCommands(deviceId?: string) {
-  const [resource, setResource] = useState<Resource<string[]>>({ loading: false });
+	const [resource, setResource] = useState<Resource<CommandDescriptor[]>>({ loading: false });
 
   useEffect(() => {
     if (!deviceId) {
@@ -126,8 +126,8 @@ export function useDeviceCommands(deviceId?: string) {
     let active = true;
     setResource({ loading: true });
     void listDeviceCommands(deviceId)
-      .then((response) => {
-        if (active) setResource({ data: response.commands.map((command) => command.type), loading: false });
+		.then((response) => {
+		if (active) setResource({ data: response.commands, loading: false });
       })
       .catch((error: unknown) => {
         if (!active) return;

@@ -2,18 +2,50 @@ import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Lightbulb, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { publishSetLed } from "@/api/gateway";
+import { type CommandDescriptor, publishCommand, publishSetLed } from "@/api/gateway";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useDeviceCommands, useGateway } from "@/context/gateway-context";
+
+type ParameterSchema = Record<string, { type?: string; required?: boolean }>;
+
+function CommandForm({ deviceId, command, onError }: { deviceId: string; command: CommandDescriptor; onError: (message: string) => void }) {
+  const [values, setValues] = useState<Record<string, string | boolean>>({});
+  const [sending, setSending] = useState(false);
+  let schema: ParameterSchema = {};
+  try { schema = command.parametersJson ? JSON.parse(command.parametersJson) as ParameterSchema : {}; } catch { schema = {}; }
+  const submit = async () => {
+    const parameters: Record<string, unknown> = {};
+    for (const [name, field] of Object.entries(schema)) {
+      const value = values[name];
+      if (field.type === "boolean") parameters[name] = value === true;
+      else if (value !== undefined && value !== "") parameters[name] = field.type === "number" || field.type === "integer" ? Number(value) : value;
+    }
+    setSending(true);
+    try { await publishCommand(deviceId, command.type, parameters); toast.success("Comando enviado ao MQTT."); }
+    catch (error) { onError(error instanceof Error ? error.message : "Falha ao enviar o comando."); }
+    finally { setSending(false); }
+  };
+  return <div className="rounded-lg border p-3">
+    <p className="font-medium">{command.type}</p>
+    {Object.entries(schema).map(([name, field]) => <div key={name} className="mt-3 space-y-1.5">
+      <Label htmlFor={`${command.type}-${name}`}>{name}{field.required ? " *" : ""}</Label>
+      {field.type === "boolean" ? <input id={`${command.type}-${name}`} type="checkbox" checked={values[name] === true} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.checked }))} /> :
+        <Input id={`${command.type}-${name}`} type={field.type === "number" || field.type === "integer" ? "number" : "text"} value={typeof values[name] === "string" ? values[name] : ""} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />}
+    </div>)}
+    <Button className="mt-4" disabled={sending} onClick={() => void submit()}>{sending ? "Enviando…" : "Enviar comando"}</Button>
+  </div>;
+}
 
 export function DeviceDetail() {
   const { deviceId } = useParams({ from: "/devices/$deviceId" });
   const { devices, manifestBindings, reportError } = useGateway();
   const device = devices.data?.find((item) => item.id === deviceId);
   const binding = manifestBindings.data?.find((item) => item.deviceId === deviceId);
-  const commands = useDeviceCommands(device?.profile === "led.v1" ? device.id : undefined);
+  const commands = useDeviceCommands(device?.topics?.command ? device.id : undefined);
   const [sending, setSending] = useState(false);
 
   if (devices.loading && !devices.data) return <Card><CardContent>Carregando dispositivo…</CardContent></Card>;
@@ -78,7 +110,12 @@ export function DeviceDetail() {
               <p className="text-sm text-muted-foreground">Verificando comandos declarados pelo gateway…</p>
             ) : commands.error ? (
               <p className="text-sm text-destructive">Não foi possível verificar os comandos: {commands.error}</p>
-            ) : device.enabled && device.topics?.command && commands.data?.includes("set_led") ? (
+            ) : device.enabled && device.topics?.command && commands.data?.some((command) => command.parametersJson) ? (
+              <div className="space-y-3">
+                <p className="text-sm leading-6 text-muted-foreground">Campos gerados a partir do manifest vinculado ao dispositivo.</p>
+                {commands.data.filter((command) => command.parametersJson).map((command) => <CommandForm key={command.type} deviceId={device.id} command={command} onError={(message) => reportError("Comando " + device.id + ": " + message)} />)}
+              </div>
+            ) : device.enabled && device.topics?.command && commands.data?.some((command) => command.type === "set_led") ? (
               <div>
                 <p className="text-sm leading-6 text-muted-foreground">O gateway confirma apenas a publicação no MQTT; este controle não confirma execução no ESP32.</p>
                 <div className="mt-4 flex flex-wrap gap-3">

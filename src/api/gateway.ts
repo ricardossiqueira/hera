@@ -32,7 +32,8 @@ export interface GatewayStatus {
 
 export interface CommandDescriptor {
   type: string;
-  parametersMessage: string;
+  parametersMessage?: string;
+  parametersJson?: string;
 }
 
 export interface ListDeviceCommandsResponse {
@@ -300,6 +301,10 @@ export function publishSetLed(deviceId: string, on: boolean) {
     deviceService + "/PublishCommand",
     { deviceId, type: "set_led", parameters: { on } },
   );
+}
+
+export function publishCommand(deviceId: string, type: string, parameters: Record<string, unknown>) {
+  return request<{ commandId: string; publishedAt: string }>(deviceService + "/PublishCommand", { deviceId, type, parameters });
 }
 
 export function provisionDevice(
