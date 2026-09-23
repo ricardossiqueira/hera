@@ -88,6 +88,15 @@ export interface CreateRouteResponse {
   appliedAt: string;
 }
 
+export interface DeviceManifest {
+  id: string;
+  displayName: string;
+  revision: string;
+  documentJson: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 // Inconsistency mirrors iot-gateway's registry.Inconsistency (see
 // docs/api-v1.md's "Inconsistências de provisionamento"): a provisioning
 // operation whose best-effort compensation (rollback) itself failed, left
@@ -330,6 +339,27 @@ export function createRoute(route: Route): Promise<CreateRouteResponse> {
 
 export function removeRoute(routeId: string): Promise<{ appliedAt: string }> {
   return request(deviceAdminService + "/RemoveRoute", { routeId });
+}
+
+export async function listDeviceManifests(): Promise<DeviceManifest[]> {
+  const result = await request<{ manifests?: DeviceManifest[] }>(deviceAdminService + "/ListDeviceManifests", {});
+  return result.manifests ?? [];
+}
+
+export function getDeviceManifest(manifestId: string): Promise<{ manifest: DeviceManifest }> {
+  return request(deviceAdminService + "/GetDeviceManifest", { manifestId });
+}
+
+export function createDeviceManifestDraft(documentJson: string): Promise<{ manifest: DeviceManifest }> {
+  return request(deviceAdminService + "/CreateDeviceManifestDraft", { documentJson });
+}
+
+export function createDeviceManifestRevisionDraft(manifestId: string, documentJson: string): Promise<{ manifest: DeviceManifest }> {
+  return request(deviceAdminService + "/CreateDeviceManifestRevisionDraft", { manifestId, documentJson });
+}
+
+export function publishDeviceManifest(manifestId: string, revision: string): Promise<{ manifest: DeviceManifest }> {
+  return request(deviceAdminService + "/PublishDeviceManifest", { manifestId, revision });
 }
 
 export async function listInconsistencies(): Promise<Inconsistency[]> {

@@ -5,6 +5,7 @@ import { DeviceDetail } from "@/pages/devices/detail";
 import { NewDevice } from "@/pages/devices/new";
 import { RemoveDevice } from "@/pages/devices/remove";
 import { DeviceSettings } from "@/pages/devices/settings";
+import { Manifests } from "@/pages/manifests";
 import { Diagnostics } from "@/pages/diagnostics";
 import { Overview } from "@/pages/overview";
 import { Queue } from "@/pages/queue";
@@ -23,6 +24,7 @@ const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$
 const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/remove", component: RemoveDevice });
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
 const routesRoute = createRoute({ getParentRoute: () => rootRoute, path: "routes", component: Routes });
+const manifestsRoute = createRoute({ getParentRoute: () => rootRoute, path: "manifests", component: Manifests });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: AppSettings });
 
@@ -31,6 +33,7 @@ const routeTree = rootRoute.addChildren([
   devicesRoute.addChildren([devicesIndexRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]),
   queueRoute,
   routesRoute,
+  manifestsRoute,
   diagnosticsRoute,
   appSettingsRoute,
 ]);
