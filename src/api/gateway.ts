@@ -59,6 +59,12 @@ export interface ProvisionCYDResponse {
   appliedAt: string;
 }
 
+export interface ProvisionLEDResponse {
+  device: Device;
+  deviceIp: string;
+  appliedAt: string;
+}
+
 export interface RegisterExistingDeviceResponse {
   device: Device;
   appliedAt: string;
@@ -221,6 +227,12 @@ export function provisionDevice(
 // delivers them directly to the CYD's temporary first-boot endpoint.
 export function provisionCYD(deviceId: string, deviceIp: string): Promise<ProvisionCYDResponse> {
   return request(deviceAdminService + "/ProvisionCYD", { deviceId, deviceIp });
+}
+
+// ProvisionLED delivers the generated MQTT identity directly to the LED NVS.
+// The browser receives only the durable device record and the selected IP.
+export function provisionLED(deviceId: string, deviceIp: string): Promise<ProvisionLEDResponse> {
+  return request(deviceAdminService + "/ProvisionLED", { deviceId, deviceIp });
 }
 
 // RegisterExistingDevice adopts a known local broker identity. Unlike device

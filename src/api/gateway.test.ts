@@ -7,6 +7,7 @@ import {
   listDeviceCommands,
   provisionDevice,
   provisionCYD,
+  provisionLED,
   registerExistingDevice,
   removeDevice,
   setDeviceEnabled,
@@ -112,6 +113,22 @@ describe("DeviceAdminService", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionCYD",
       expect.objectContaining({ body: JSON.stringify({ deviceId: "cyd-sala", deviceIp: "192.168.15.42" }) }),
+    );
+  });
+
+  it("provisiona um LED pelo IP sem receber senha MQTT no navegador", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      device: { id: "led-sala", type: "esp32", enabled: true, profile: "led.v1" },
+      deviceIp: "192.168.15.43", appliedAt: "2026-09-23T16:00:00Z",
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await provisionLED("led-sala", "192.168.15.43");
+    expect(response).not.toHaveProperty("mqttPassword");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionLED",
+      expect.objectContaining({ body: JSON.stringify({ deviceId: "led-sala", deviceIp: "192.168.15.43" }) }),
     );
   });
 
