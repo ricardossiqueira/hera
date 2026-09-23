@@ -123,6 +123,19 @@ export interface DeviceTelemetry {
   observedAt?: string;
 }
 
+// GatewayEvent mirrors iot-gateway's ActivityEvent (docs/api-v1.md's
+// "Atividade recente"): the in-memory, payload-free activity log - not the
+// outbox/fila above. kind is empty for a route_published/route_failed
+// outcome (a route spans two devices, not one).
+export interface GatewayEvent {
+  timestamp: string;
+  deviceId: string;
+  kind: string;
+  topic: string;
+  outcome: "accepted" | "rejected" | "route_published" | "route_failed";
+  detail: string;
+}
+
 // QueueSummary mirrors internal/outbox.Snapshot (see docs/api-v1.md's
 // "Resumo da fila"): pending state right now, not GetStatus's lifetime
 // outboxStored/Discarded/Failed counters. oldestEnqueuedAt is unset when
@@ -218,6 +231,11 @@ export function getStatus(): Promise<GatewayStatus> {
 
 export function getQueueSummary(): Promise<QueueSummary> {
   return request(gatewayService + "/GetQueueSummary", {});
+}
+
+export async function getRecentEvents(): Promise<GatewayEvent[]> {
+  const result = await request<{ events?: GatewayEvent[] }>(gatewayService + "/GetRecentEvents", {});
+  return result.events ?? [];
 }
 
 export async function listDevices(): Promise<Device[]> {
