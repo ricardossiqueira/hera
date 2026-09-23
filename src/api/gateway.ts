@@ -60,9 +60,16 @@ export interface ProvisionCYDResponse {
 }
 
 export interface ProvisionLEDResponse {
-  device: Device;
-  deviceIp: string;
-  appliedAt: string;
+	device: Device;
+	deviceIp: string;
+	appliedAt: string;
+}
+
+export interface ProvisionDeviceByIPResponse {
+	device: Device;
+	deviceIp: string;
+	manifestId: string;
+	appliedAt: string;
 }
 
 export interface RegisterExistingDeviceResponse {
@@ -305,7 +312,14 @@ export function provisionCYD(deviceId: string, deviceIp: string): Promise<Provis
 // ProvisionLED delivers the generated MQTT identity directly to the LED NVS.
 // The browser receives only the durable device record and the selected IP.
 export function provisionLED(deviceId: string, deviceIp: string): Promise<ProvisionLEDResponse> {
-  return request(deviceAdminService + "/ProvisionLED", { deviceId, deviceIp });
+	return request(deviceAdminService + "/ProvisionLED", { deviceId, deviceIp });
+}
+
+// ProvisionDeviceByIP is manifest-driven: the browser selects a published
+// family, while the gateway validates the firmware and sends its one-time
+// MQTT identity directly to the device NVS.
+export function provisionDeviceByIP(deviceId: string, manifestId: string, deviceIp: string): Promise<ProvisionDeviceByIPResponse> {
+	return request(deviceAdminService + "/ProvisionDeviceByIP", { deviceId, manifestId, deviceIp });
 }
 
 // RegisterExistingDevice adopts a known local broker identity. Unlike device

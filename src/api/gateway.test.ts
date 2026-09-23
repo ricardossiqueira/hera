@@ -7,6 +7,7 @@ import {
   listDeviceCommands,
   provisionDevice,
   provisionCYD,
+	provisionDeviceByIP,
   provisionLED,
   registerExistingDevice,
   removeDevice,
@@ -116,7 +117,7 @@ describe("DeviceAdminService", () => {
     );
   });
 
-  it("provisiona um LED pelo IP sem receber senha MQTT no navegador", async () => {
+	it("provisiona um LED pelo IP sem receber senha MQTT no navegador", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       device: { id: "led-sala", type: "esp32", enabled: true, profile: "led.v1" },
@@ -130,7 +131,23 @@ describe("DeviceAdminService", () => {
       "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionLED",
       expect.objectContaining({ body: JSON.stringify({ deviceId: "led-sala", deviceIp: "192.168.15.43" }) }),
     );
-  });
+	});
+
+	it("provisiona pelo manifest publicado sem receber senha MQTT no navegador", async () => {
+		vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+			device: { id: "led-sala", type: "esp32c3-led", enabled: true },
+			deviceIp: "192.168.15.43", manifestId: "esp32-c3-led", appliedAt: "2026-09-23T16:00:00Z",
+		}), { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		const response = await provisionDeviceByIP("led-sala", "esp32-c3-led", "192.168.15.43");
+		expect(response).not.toHaveProperty("mqttPassword");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionDeviceByIP",
+			expect.objectContaining({ body: JSON.stringify({ deviceId: "led-sala", manifestId: "esp32-c3-led", deviceIp: "192.168.15.43" }) }),
+		);
+	});
 
   it("adota o orangepi-monitor sem receber nem rotacionar senha MQTT", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
