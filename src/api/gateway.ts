@@ -88,6 +88,20 @@ export interface CreateRouteResponse {
   appliedAt: string;
 }
 
+// Inconsistency mirrors iot-gateway's registry.Inconsistency (see
+// docs/api-v1.md's "Inconsistências de provisionamento"): a provisioning
+// operation whose best-effort compensation (rollback) itself failed, left
+// durably recorded. Not a reconciler/retry queue - iot-gateway doesn't have
+// one - just a record for an operator to act on and then resolve.
+export interface Inconsistency {
+  id: string;
+  kind: string;
+  deviceId: string;
+  cause: string;
+  compensationError: string;
+  createdAt: string;
+}
+
 // OrangePiTelemetry mirrors orangepi-monitor's payload
 // (internal/metrics/payload.go): cpu_pct, memory_used_mb, memory_total_mb,
 // disk_used_pct, load_1, temperature_c?, uptime_s, plus message_id/timestamp
@@ -280,4 +294,13 @@ export function createRoute(route: Route): Promise<CreateRouteResponse> {
 
 export function removeRoute(routeId: string): Promise<{ appliedAt: string }> {
   return request(deviceAdminService + "/RemoveRoute", { routeId });
+}
+
+export async function listInconsistencies(): Promise<Inconsistency[]> {
+  const result = await request<{ inconsistencies?: Inconsistency[] }>(deviceAdminService + "/ListInconsistencies", {});
+  return result.inconsistencies ?? [];
+}
+
+export function resolveInconsistency(id: string): Promise<Record<string, never>> {
+  return request(deviceAdminService + "/ResolveInconsistency", { id });
 }
