@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Lightbulb, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { migrateDeviceToManifest, type CommandDescriptor, publishCommand, publishSetLed } from "@/api/gateway";
+import { migrateDeviceToManifest, type CommandDescriptor, publishCommand } from "@/api/gateway";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +46,6 @@ export function DeviceDetail() {
   const device = devices.data?.find((item) => item.id === deviceId);
   const binding = manifestBindings.data?.find((item) => item.deviceId === deviceId);
   const commands = useDeviceCommands(device?.topics?.command ? device.id : undefined);
-  const [sending, setSending] = useState(false);
   const [manifestId, setManifestId] = useState("");
 
   if (devices.loading && !devices.data) return <Card><CardContent>Carregando dispositivo…</CardContent></Card>;
@@ -60,19 +59,6 @@ export function DeviceDetail() {
       </Card>
     );
   }
-
-  const send = async (on: boolean) => {
-    setSending(true);
-    try {
-      await publishSetLed(device.id, on);
-      toast.success("Comando enviado ao MQTT.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao enviar o comando.";
-      reportError("Comando " + device.id + ": " + message);
-    } finally {
-      setSending(false);
-    }
-  };
 
   const migrate = async () => {
     if (!manifestId) return;
@@ -103,7 +89,6 @@ export function DeviceDetail() {
           <CardContent>
             <dl className="grid gap-4 text-sm">
               <div><dt className="text-muted-foreground">Tipo</dt><dd className="mt-0.5">{device.type}</dd></div>
-              <div><dt className="text-muted-foreground">Profile</dt><dd className="mt-0.5">{device.profile || "Não definido"}</dd></div>
               <div><dt className="text-muted-foreground">Manifest provisionado</dt><dd className="mt-0.5">{binding ? `${binding.manifestId} · revisão ${binding.manifestRevision}` : manifestBindings.loading ? "Carregando…" : "Legado / sem manifest"}</dd></div>
               <div><dt className="text-muted-foreground">Habilitado</dt><dd className="mt-0.5">{device.enabled ? "Sim" : "Não"}</dd></div>
               <div><dt className="text-muted-foreground">Tópico de comando</dt><dd className="mt-0.5 break-all">{device.topics?.command || "Não configurado"}</dd></div>
@@ -121,14 +106,6 @@ export function DeviceDetail() {
               <div className="space-y-3">
                 <p className="text-sm leading-6 text-muted-foreground">Campos gerados a partir do manifest vinculado ao dispositivo.</p>
                 {commands.data.filter((command) => command.parametersJson).map((command) => <CommandForm key={command.type} deviceId={device.id} command={command} onError={(message) => reportError("Comando " + device.id + ": " + message)} />)}
-              </div>
-            ) : device.enabled && device.topics?.command && commands.data?.some((command) => command.type === "set_led") ? (
-              <div>
-                <p className="text-sm leading-6 text-muted-foreground">O gateway confirma apenas a publicação no MQTT; este controle não confirma execução no ESP32.</p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Button disabled={sending} onClick={() => void send(true)}>Ligar LED</Button>
-                  <Button disabled={sending} variant="outline" onClick={() => void send(false)}>Desligar LED</Button>
-                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Este dispositivo não declarou um comando compatível nesta interface.</p>
@@ -149,7 +126,7 @@ export function DeviceDetail() {
             </div>
           </CardContent>
         </Card>
-        {!binding && device.profile ? <Card className="lg:col-span-2"><CardHeader><CardTitle>Migrar profile legado</CardTitle></CardHeader><CardContent>
+        {!binding ? <Card className="lg:col-span-2"><CardHeader><CardTitle>Vincular manifest</CardTitle></CardHeader><CardContent>
           <p className="text-sm text-muted-foreground">Informe o ID de um manifest publicado compatível. A migração não altera MQTT nem NVS.</p>
           <div className="mt-3 flex gap-2"><Input value={manifestId} onChange={(event) => setManifestId(event.target.value)} placeholder="esp32-c3-led" /><Button onClick={() => void migrate()}>Migrar</Button></div>
         </CardContent></Card> : null}

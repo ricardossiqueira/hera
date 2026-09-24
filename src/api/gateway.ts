@@ -12,7 +12,6 @@ export interface Device {
   id: string;
   type: string;
   enabled: boolean;
-  profile?: string;
   topics?: DeviceTopics;
 }
 
@@ -32,7 +31,6 @@ export interface GatewayStatus {
 
 export interface CommandDescriptor {
   type: string;
-  parametersMessage?: string;
   parametersJson?: string;
 }
 
@@ -42,28 +40,9 @@ export interface ListDeviceCommandsResponse {
   commands: CommandDescriptor[];
 }
 
-export interface ProvisionDeviceResponse {
-  device: Device;
-  mqttUsername: string;
-  mqttPassword: string;
-  appliedAt: string;
-}
-
 export interface SetDeviceEnabledResponse {
   device: Device;
   appliedAt: string;
-}
-
-export interface ProvisionCYDResponse {
-  device: Device;
-  deviceIp: string;
-  appliedAt: string;
-}
-
-export interface ProvisionLEDResponse {
-	device: Device;
-	deviceIp: string;
-	appliedAt: string;
 }
 
 export interface ProvisionDeviceByIPResponse {
@@ -296,34 +275,8 @@ export function getDeviceTelemetry(deviceId: string): Promise<DeviceTelemetry> {
   return request(deviceService + "/GetDeviceTelemetry", { deviceId });
 }
 
-export function publishSetLed(deviceId: string, on: boolean) {
-  return request<{ commandId: string; publishedAt: string }>(
-    deviceService + "/PublishCommand",
-    { deviceId, type: "set_led", parameters: { on } },
-  );
-}
-
 export function publishCommand(deviceId: string, type: string, parameters: Record<string, unknown>) {
   return request<{ commandId: string; publishedAt: string }>(deviceService + "/PublishCommand", { deviceId, type, parameters });
-}
-
-export function provisionDevice(
-  deviceId: string,
-  template = "esp32_led.v1",
-): Promise<ProvisionDeviceResponse> {
-  return request(deviceAdminService + "/ProvisionDevice", { deviceId, template });
-}
-
-// ProvisionCYD never receives MQTT credentials in the browser. The gateway
-// delivers them directly to the CYD's temporary first-boot endpoint.
-export function provisionCYD(deviceId: string, deviceIp: string): Promise<ProvisionCYDResponse> {
-  return request(deviceAdminService + "/ProvisionCYD", { deviceId, deviceIp });
-}
-
-// ProvisionLED delivers the generated MQTT identity directly to the LED NVS.
-// The browser receives only the durable device record and the selected IP.
-export function provisionLED(deviceId: string, deviceIp: string): Promise<ProvisionLEDResponse> {
-	return request(deviceAdminService + "/ProvisionLED", { deviceId, deviceIp });
 }
 
 // ProvisionDeviceByIP is manifest-driven: the browser selects a published

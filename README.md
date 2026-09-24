@@ -10,7 +10,7 @@ e Tailwind CSS:
 
 - visão geral com polling de 10 segundos e atualização manual;
 - lista e detalhe configuracional de dispositivos;
-- controle individual e em lote para `led.v1`;
+- formulário de comando genérico por manifest (campos e schema vêm do gateway, sem hardcode de LED);
 - diagnóstico de conectividade e página de fila em estado indisponível;
 - configuração do endpoint por ambiente.
 
