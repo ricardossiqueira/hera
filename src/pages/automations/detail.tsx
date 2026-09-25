@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
-import { type AutomationRule, listAutomationRules, removeAutomationRule, setAutomationRuleEnabled } from "@/api/gateway";
+import { toast } from "sonner";
+import { type AutomationRule, listAutomationRules, publishCommand, removeAutomationRule, setAutomationRuleEnabled } from "@/api/gateway";
 import type { ActionNodeData } from "@/components/automation-flow/action-node";
-import type { ConditionNodeData } from "@/components/automation-flow/condition-node";
+import type { ConditionNodeData } from "@/components/automation-flow/condition-flow/types";
 import type { EventNodeData } from "@/components/automation-flow/event-node";
 import { RuleCanvas } from "@/components/automation-flow/rule-canvas";
 import { PageHeading } from "@/components/page-heading";
@@ -76,11 +77,31 @@ export function AutomationDetail() {
     }
   };
 
-  const eventData: EventNodeData = { mode: "detail", devices: [], deviceId: rule.sourceDeviceId, eventType: rule.eventType, eventTypeOptions: [] };
+  // Shared by both EventNode's and ActionNode's trigger buttons - both
+  // fire the exact same rule action unconditionally (no condition/dedup/
+  // rate-limit in the way), reusing the same publishCommand call
+  // CommandForm (src/pages/devices/detail.tsx) already uses for manual
+  // dispatch from /dispositivos. Defined once here so both nodes share one
+  // implementation instead of two.
+  const triggerAction = async () => {
+    try {
+      const parameters = rule.actionParametersJson ? (JSON.parse(rule.actionParametersJson) as Record<string, unknown>) : {};
+      await publishCommand(rule.actionDeviceId, rule.actionCommandType, parameters);
+      toast.success("Comando enviado ao MQTT.");
+    } catch (error) {
+      reportError("Disparar ação: " + (error instanceof Error ? error.message : "falha inesperada"));
+    }
+  };
+
+  const eventData: EventNodeData = {
+    mode: "detail", deviceId: rule.sourceDeviceId, eventType: rule.eventType, eventTypeOptions: [],
+    onTrigger: triggerAction,
+  };
   const conditionData: ConditionNodeData = { mode: "detail", conditionJson: rule.conditionJson ?? "", fieldSuggestions: [] };
   const actionData: ActionNodeData = {
-    mode: "detail", devices: [], deviceId: rule.actionDeviceId, commandType: rule.actionCommandType,
+    mode: "detail", deviceId: rule.actionDeviceId, commandType: rule.actionCommandType,
     commandOptions: [], parametersSchema: {}, parametersValues: {}, parametersJson: rule.actionParametersJson,
+    onTrigger: triggerAction,
   };
 
   return (

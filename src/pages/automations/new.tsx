@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { createAutomationRule } from "@/api/gateway";
 import type { ActionNodeData } from "@/components/automation-flow/action-node";
-import type { ConditionNodeData } from "@/components/automation-flow/condition-node";
+import type { ConditionNodeData } from "@/components/automation-flow/condition-flow/types";
 import type { EventNodeData } from "@/components/automation-flow/event-node";
 import { RuleCanvas } from "@/components/automation-flow/rule-canvas";
 import { coerceParameterValues, parseParameterSchema } from "@/components/parameters-form";
@@ -25,7 +25,7 @@ function payloadFields(payloadJson?: string): string[] {
 
 export function NewAutomation() {
   const navigate = useNavigate();
-  const { devices, reportError } = useGateway();
+  const { reportError } = useGateway();
   const [sourceDeviceId, setSourceDeviceId] = useState("");
   const [eventType, setEventType] = useState("");
   const [conditionJson, setConditionJson] = useState("");
@@ -35,9 +35,6 @@ export function NewAutomation() {
   const [id, setID] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  const sourceDevices = useMemo(() => (devices.data ?? []).filter((device) => device.enabled && device.topics?.event), [devices.data]);
-  const actionDevices = useMemo(() => (devices.data ?? []).filter((device) => device.enabled && device.topics?.command), [devices.data]);
 
   const events = useDeviceEvents(sourceDeviceId || undefined);
   const commands = useDeviceCommands(actionDeviceId || undefined);
@@ -54,15 +51,22 @@ export function NewAutomation() {
   }, [id, sourceDeviceId, eventType, actionDeviceId]);
 
   const eventData: EventNodeData = {
-    mode: "create", devices: sourceDevices, deviceId: sourceDeviceId, eventType,
+    mode: "create", deviceId: sourceDeviceId, eventType,
     eventTypeOptions: (events.data ?? []).map((event) => event.type),
     onDeviceChange: setSourceDeviceId, onEventTypeChange: setEventType,
   };
+  // Memoized so it's referentially stable across the page's frequent
+  // re-renders (every keystroke in any field) when the underlying payload
+  // schema hasn't actually changed - the condition-flow canvas rebuilds
+  // its whole node/edge set whenever this reference changes, so an
+  // unstable array here churns React Flow's internal handle bookkeeping
+  // far more than a real edit ever would.
+  const fieldSuggestions = useMemo(() => payloadFields(selectedEvent?.payloadJson), [selectedEvent?.payloadJson]);
   const conditionData: ConditionNodeData = {
-    mode: "create", conditionJson, fieldSuggestions: payloadFields(selectedEvent?.payloadJson), onChange: setConditionJson,
+    mode: "create", conditionJson, fieldSuggestions, onChange: setConditionJson,
   };
   const actionData: ActionNodeData = {
-    mode: "create", devices: actionDevices, deviceId: actionDeviceId, commandType: actionCommandType,
+    mode: "create", deviceId: actionDeviceId, commandType: actionCommandType,
     commandOptions: commands.data ?? [], parametersSchema: actionSchema, parametersValues: actionValues, parametersJson: "",
     onDeviceChange: setActionDeviceId, onCommandChange: setActionCommandType, onParametersChange: setActionValues,
   };
@@ -85,7 +89,7 @@ export function NewAutomation() {
 
   return (
     <>
-      <PageHeading title="Nova automação" description="Preencha os três blocos: o que observar, quando disparar, o que fazer." />
+      <PageHeading title="Nova automação" description="Selecione um bloco no canvas e arraste da barra lateral o que quer colocar nele." />
       <RuleCanvas eventData={eventData} conditionData={conditionData} actionData={actionData} />
       <Card className="mt-4">
         <CardContent className="flex flex-wrap items-end gap-4">
