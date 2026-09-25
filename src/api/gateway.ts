@@ -40,6 +40,17 @@ export interface ListDeviceCommandsResponse {
   commands: CommandDescriptor[];
 }
 
+export interface EventDescriptor {
+  type: string;
+  payloadJson?: string;
+}
+
+export interface ListDeviceEventsResponse {
+  deviceId: string;
+  schemaValidated: boolean;
+  events: EventDescriptor[];
+}
+
 export interface SetDeviceEnabledResponse {
   device: Device;
   appliedAt: string;
@@ -72,6 +83,35 @@ export interface Route {
 
 export interface CreateRouteResponse {
   route: Route;
+  appliedAt: string;
+}
+
+// AutomationRule mirrors iot-gateway's registry.AutomationRule (Marco 5,
+// docs/device-manifests.md): "when sourceDeviceId emits eventType, if
+// conditionJson passes, publish actionCommandType to actionDeviceId". No
+// revision history and no update RPC - editing means remove and recreate,
+// the same model Route already uses.
+export interface AutomationRule {
+  id: string;
+  enabled: boolean;
+  sourceDeviceId: string;
+  eventType: string;
+  conditionJson?: string;
+  actionDeviceId: string;
+  actionCommandType: string;
+  actionParametersJson: string;
+  actionSchemaValidated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAutomationRuleResponse {
+  rule: AutomationRule;
+  appliedAt: string;
+}
+
+export interface SetAutomationRuleEnabledResponse {
+  rule: AutomationRule;
   appliedAt: string;
 }
 
@@ -267,6 +307,10 @@ export function listDeviceCommands(deviceId: string): Promise<ListDeviceCommands
   return request(deviceService + "/ListDeviceCommands", { deviceId });
 }
 
+export function listDeviceEvents(deviceId: string): Promise<ListDeviceEventsResponse> {
+  return request(deviceService + "/ListDeviceEvents", { deviceId });
+}
+
 // getDeviceTelemetry never throws for "nothing received yet" - the gateway
 // answers available:false, not an error (see docs/api-v1.md's "Telemetria
 // em cache"). It still throws GatewayApiError for an unknown device_id or a
@@ -321,6 +365,23 @@ export function createRoute(route: Route): Promise<CreateRouteResponse> {
 
 export function removeRoute(routeId: string): Promise<{ appliedAt: string }> {
   return request(deviceAdminService + "/RemoveRoute", { routeId });
+}
+
+export async function listAutomationRules(): Promise<AutomationRule[]> {
+  const result = await request<{ rules?: AutomationRule[] }>(deviceAdminService + "/ListAutomationRules", {});
+  return result.rules ?? [];
+}
+
+export function createAutomationRule(rule: Omit<AutomationRule, "createdAt" | "updatedAt" | "actionSchemaValidated">): Promise<CreateAutomationRuleResponse> {
+  return request(deviceAdminService + "/CreateAutomationRule", { rule });
+}
+
+export function setAutomationRuleEnabled(ruleId: string, enabled: boolean): Promise<SetAutomationRuleEnabledResponse> {
+  return request(deviceAdminService + "/SetAutomationRuleEnabled", { ruleId, enabled });
+}
+
+export function removeAutomationRule(ruleId: string): Promise<{ appliedAt: string }> {
+  return request(deviceAdminService + "/RemoveAutomationRule", { ruleId });
 }
 
 export async function listDeviceManifests(): Promise<DeviceManifest[]> {

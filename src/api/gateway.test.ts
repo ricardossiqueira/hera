@@ -10,6 +10,9 @@ import {
   registerExistingDevice,
   removeDevice,
   setDeviceEnabled,
+  createAutomationRule,
+  listAutomationRules,
+  removeAutomationRule,
 } from "./gateway";
 import { clearCredentials, getCredentials, setCredentials } from "./auth";
 
@@ -160,6 +163,28 @@ describe("DeviceAdminService", () => {
     await expect(createRoute(route)).resolves.toMatchObject({ route });
     expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListRoutes");
     expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateRoute");
+  });
+
+  it("lista, cria e remove regras de automação", async () => {
+    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
+    const rule = {
+      id: "led-1-button_pressed-to-led-2", enabled: true, sourceDeviceId: "led-1", eventType: "button_pressed",
+      conditionJson: "", actionDeviceId: "led-2", actionCommandType: "set_led", actionParametersJson: "{\"on\":true}",
+      actionSchemaValidated: true, createdAt: "2026-09-24T12:00:00Z", updatedAt: "2026-09-24T12:00:00Z",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rules: [rule] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rule, appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listAutomationRules()).resolves.toEqual([rule]);
+    await expect(createAutomationRule(rule)).resolves.toMatchObject({ rule });
+    await expect(removeAutomationRule(rule.id)).resolves.toMatchObject({ appliedAt: "2026-09-24T12:00:00Z" });
+    expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListAutomationRules");
+    expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateAutomationRule");
+    expect(fetchMock.mock.calls[2][0]).toContain("DeviceAdminService/RemoveAutomationRule");
   });
 
   it("traduz o codigo Connect already_exists para uma mensagem acionavel", async () => {

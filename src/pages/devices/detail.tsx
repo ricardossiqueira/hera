@@ -4,38 +4,25 @@ import { ArrowLeft, Lightbulb, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { migrateDeviceToManifest, type CommandDescriptor, publishCommand } from "@/api/gateway";
 import { PageHeading } from "@/components/page-heading";
+import { coerceParameterValues, ParametersForm, parseParameterSchema } from "@/components/parameters-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useDeviceCommands, useGateway } from "@/context/gateway-context";
-
-type ParameterSchema = Record<string, { type?: string; required?: boolean }>;
 
 function CommandForm({ deviceId, command, onError }: { deviceId: string; command: CommandDescriptor; onError: (message: string) => void }) {
   const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [sending, setSending] = useState(false);
-  let schema: ParameterSchema = {};
-  try { schema = command.parametersJson ? JSON.parse(command.parametersJson) as ParameterSchema : {}; } catch { schema = {}; }
+  const schema = parseParameterSchema(command.parametersJson);
   const submit = async () => {
-    const parameters: Record<string, unknown> = {};
-    for (const [name, field] of Object.entries(schema)) {
-      const value = values[name];
-      if (field.type === "boolean") parameters[name] = value === true;
-      else if (value !== undefined && value !== "") parameters[name] = field.type === "number" || field.type === "integer" ? Number(value) : value;
-    }
     setSending(true);
-    try { await publishCommand(deviceId, command.type, parameters); toast.success("Comando enviado ao MQTT."); }
+    try { await publishCommand(deviceId, command.type, coerceParameterValues(schema, values)); toast.success("Comando enviado ao MQTT."); }
     catch (error) { onError(error instanceof Error ? error.message : "Falha ao enviar o comando."); }
     finally { setSending(false); }
   };
   return <div className="rounded-lg border p-3">
     <p className="font-medium">{command.type}</p>
-    {Object.entries(schema).map(([name, field]) => <div key={name} className="mt-3 space-y-1.5">
-      <Label htmlFor={`${command.type}-${name}`}>{name}{field.required ? " *" : ""}</Label>
-      {field.type === "boolean" ? <input id={`${command.type}-${name}`} type="checkbox" checked={values[name] === true} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.checked }))} /> :
-        <Input id={`${command.type}-${name}`} type={field.type === "number" || field.type === "integer" ? "number" : "text"} value={typeof values[name] === "string" ? values[name] : ""} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />}
-    </div>)}
+    <ParametersForm idPrefix={command.type} schema={schema} values={values} onChange={setValues} />
     <Button className="mt-4" disabled={sending} onClick={() => void submit()}>{sending ? "Enviando…" : "Enviar comando"}</Button>
   </div>;
 }

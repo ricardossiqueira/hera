@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
+import { Automations } from "@/pages/automations";
 import { Devices } from "@/pages/devices";
 import { DeviceDetail } from "@/pages/devices/detail";
 import { NewDevice } from "@/pages/devices/new";
@@ -25,6 +26,7 @@ const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
 const routesRoute = createRoute({ getParentRoute: () => rootRoute, path: "routes", component: Routes });
 const manifestsRoute = createRoute({ getParentRoute: () => rootRoute, path: "manifests", component: Manifests });
+const automationsRoute = createRoute({ getParentRoute: () => rootRoute, path: "automations", component: Automations });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: AppSettings });
 
@@ -34,6 +36,7 @@ const routeTree = rootRoute.addChildren([
   queueRoute,
   routesRoute,
   manifestsRoute,
+  automationsRoute,
   diagnosticsRoute,
   appSettingsRoute,
 ]);

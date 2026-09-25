@@ -309,6 +309,25 @@ operacional por device.
   `docs/security.md`, `docs/device-onboarding.md`,
   `docs/mosquitto-device-provisioning.md`).
 
+### Marco 5 — Automações (concluído em 24/09/2026)
+
+- `DeviceAdminService` ganhou `ListAutomationRules`, `CreateAutomationRule`,
+  `SetAutomationRuleEnabled` e `RemoveAutomationRule` (sem `Update`/`Get`
+  — mudar uma regra é remover e recriar, mesmo modelo de `Route`), e
+  `DeviceService` ganhou `ListDeviceEvents` (espelha `ListDeviceCommands`
+  pros eventos declarados no manifest).
+- Nova página `/automations`: cria regra "evento → condição → ação" com
+  formulário visual de condição (`ConditionBuilder`, um subconjunto de
+  JSONLogic — `and`/`or`/comparações/`var`, sem aninhamento arbitrário),
+  com fallback pra edição JSON crua quando a condição salva não cabe no
+  formulário. Parâmetros da ação reaproveitam o mesmo formulário
+  schema-driven que `/devices/$deviceId` já usa pra publicar comando
+  (`ParametersForm`, extraído de `CommandForm`).
+- A execução em si (casar evento com regra, avaliar condição, publicar a
+  ação) é só do lado `iot-gateway` — a página apenas gerencia as regras,
+  sem indicar quantas vezes uma regra já disparou (esse dado existe no
+  SQLite mas não tem RPC ainda).
+
 ## 10. Criterios de aceite
 
 ### Marco 1

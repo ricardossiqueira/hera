@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { type CommandDescriptor, type Device, type DeviceManifestBinding, type DeviceTelemetry, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDeviceManifestBindings, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
+import { type CommandDescriptor, type Device, type DeviceManifestBinding, type DeviceTelemetry, type EventDescriptor, GatewayApiError, type GatewayStatus, getDeviceTelemetry, getQueueSummary, getStatus, type Inconsistency, listDeviceCommands, listDeviceEvents, listDeviceManifestBindings, listDevices, listInconsistencies, type QueueSummary } from "@/api/gateway";
 
 // orangepi-monitor's device_id is fixed - configs/config.example.yaml
 // doesn't make it configurable, and it's the same ID the "Registrar
@@ -134,6 +134,39 @@ export function useDeviceCommands(deviceId?: string) {
         setResource({
           loading: false,
           error: error instanceof Error ? error.message : "Erro inesperado ao consultar comandos.",
+        });
+      });
+
+    return () => { active = false; };
+  }, [deviceId]);
+
+  return resource;
+}
+
+// useDeviceEvents mirrors useDeviceCommands above exactly - the same
+// lazy-per-device fetch, used by Marco 5's automation rule form to let an
+// operator pick a source device's declared event type instead of typing
+// it blind.
+export function useDeviceEvents(deviceId?: string) {
+  const [resource, setResource] = useState<Resource<EventDescriptor[]>>({ loading: false });
+
+  useEffect(() => {
+    if (!deviceId) {
+      setResource({ loading: false });
+      return;
+    }
+
+    let active = true;
+    setResource({ loading: true });
+    void listDeviceEvents(deviceId)
+      .then((response) => {
+        if (active) setResource({ data: response.events, loading: false });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setResource({
+          loading: false,
+          error: error instanceof Error ? error.message : "Erro inesperado ao consultar eventos.",
         });
       });
 
