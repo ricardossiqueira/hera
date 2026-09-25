@@ -139,7 +139,21 @@ export function ConditionBuilder({ value, onChange, fieldSuggestions }: {
           <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
           <SelectContent>{OPERATORS.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
         </Select>
-        <Select value={clause.type} onValueChange={(type) => applyClauses(combinator, clauses.map((item, i) => i === index ? { ...item, type: type as ValueType } : item))}>
+        <Select
+          value={clause.type}
+          onValueChange={(type) => applyClauses(combinator, clauses.map((item, i) => {
+            if (i !== index) return item;
+            // Switching to boolean must set a real value immediately, not
+            // just display one via a fallback - the boolean <Select> below
+            // shows "true" whenever clause.value is empty, which looks
+            // selected but silently serializes as false (empty string !==
+            // "true") until the operator is explicitly reopened. That gap
+            // is exactly what produced two rules with the same condition
+            // during testing (one meant to be on==true).
+            const value = type === "boolean" && item.value !== "true" && item.value !== "false" ? "true" : item.value;
+            return { ...item, type: type as ValueType, value };
+          }))}
+        >
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="string">texto</SelectItem>
@@ -148,7 +162,7 @@ export function ConditionBuilder({ value, onChange, fieldSuggestions }: {
           </SelectContent>
         </Select>
         {clause.type === "boolean" ? (
-          <Select value={clause.value || "true"} onValueChange={(next) => applyClauses(combinator, clauses.map((item, i) => i === index ? { ...item, value: next } : item))}>
+          <Select value={clause.value === "false" ? "false" : "true"} onValueChange={(next) => applyClauses(combinator, clauses.map((item, i) => i === index ? { ...item, value: next } : item))}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="true">true</SelectItem><SelectItem value="false">false</SelectItem></SelectContent>
           </Select>

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@xyflow/react/dist/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -42,6 +43,41 @@
 }
 
 body { margin: 0; min-width: 320px; }
+
+/*
+ * @xyflow/react ships its own --xy-* custom properties for every themeable
+ * surface (node/edge/handle/controls/background). Mapped here to the
+ * tokens already defined above instead of the library's own light-mode
+ * defaults, so the automations canvas (src/pages/automations.tsx) matches
+ * the rest of this dark-only app rather than looking like a foreign
+ * widget. Scoped to .react-flow (the root class the library renders),
+ * not :root, since these names are meaningless outside it.
+ */
+.react-flow {
+  --xy-background-color: var(--background);
+  --xy-background-pattern-color: var(--border);
+  --xy-node-background-color: var(--card);
+  --xy-node-border: 1px solid var(--border);
+  --xy-node-color: var(--card-foreground);
+  --xy-node-border-radius: var(--radius-lg);
+  --xy-node-boxshadow-hover: 0 0 0 1px var(--ring);
+  --xy-node-boxshadow-selected: 0 0 0 2px var(--ring);
+  --xy-handle-background-color: var(--primary);
+  --xy-handle-border-color: var(--background);
+  --xy-edge-stroke: var(--muted-foreground);
+  --xy-edge-stroke-selected: var(--primary);
+  --xy-edge-label-background-color: var(--card);
+  --xy-edge-label-color: var(--card-foreground);
+  --xy-connectionline-stroke: var(--primary);
+  --xy-selection-background-color: color-mix(in oklch, var(--primary) 15%, transparent);
+  --xy-selection-border: 1px solid var(--primary);
+  --xy-controls-button-background-color: var(--card);
+  --xy-controls-button-background-color-hover: var(--accent);
+  --xy-controls-button-color: var(--card-foreground);
+  --xy-controls-button-color-hover: var(--accent-foreground);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-box-shadow: 0 1px 2px oklch(0 0 0 / 20%);
+}
 
 @theme inline {
   --font-heading: var(--font-sans);

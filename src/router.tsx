@@ -1,6 +1,8 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { Automations } from "@/pages/automations";
+import { AutomationsList } from "@/pages/automations";
+import { AutomationDetail } from "@/pages/automations/detail";
+import { NewAutomation } from "@/pages/automations/new";
 import { Devices } from "@/pages/devices";
 import { DeviceDetail } from "@/pages/devices/detail";
 import { NewDevice } from "@/pages/devices/new";
@@ -26,7 +28,13 @@ const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
 const routesRoute = createRoute({ getParentRoute: () => rootRoute, path: "routes", component: Routes });
 const manifestsRoute = createRoute({ getParentRoute: () => rootRoute, path: "manifests", component: Manifests });
-const automationsRoute = createRoute({ getParentRoute: () => rootRoute, path: "automations", component: Automations });
+// /automations is a layout route, same reasoning as /devices above: each
+// rule gets its own canvas (new.tsx / detail.tsx), not a single shared
+// one, so it needs its own sub-routes.
+const automationsRoute = createRoute({ getParentRoute: () => rootRoute, path: "automations", component: Outlet });
+const automationsIndexRoute = createRoute({ getParentRoute: () => automationsRoute, path: "/", component: AutomationsList });
+const newAutomationRoute = createRoute({ getParentRoute: () => automationsRoute, path: "new", component: NewAutomation });
+const automationDetailRoute = createRoute({ getParentRoute: () => automationsRoute, path: "$ruleId", component: AutomationDetail });
 const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: AppSettings });
 
@@ -36,7 +44,7 @@ const routeTree = rootRoute.addChildren([
   queueRoute,
   routesRoute,
   manifestsRoute,
-  automationsRoute,
+  automationsRoute.addChildren([automationsIndexRoute, newAutomationRoute, automationDetailRoute]),
   diagnosticsRoute,
   appSettingsRoute,
 ]);

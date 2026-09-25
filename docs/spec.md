@@ -327,6 +327,16 @@ operacional por device.
   ação) é só do lado `iot-gateway` — a página apenas gerencia as regras,
   sem indicar quantas vezes uma regra já disparou (esse dado existe no
   SQLite mas não tem RPC ainda).
+- **Atualização (mesmo dia):** `/automations` trocou o formulário +
+  lista por um canvas React Flow (`@xyflow/react`) — um nó por
+  dispositivo (`DeviceNode`), com handles de comando à esquerda e de
+  evento à direita; cada regra existente é uma aresta entre dois
+  dispositivos. Criar uma regra é arrastar uma conexão de um evento até
+  um comando, o que abre `RuleDialog` já pré-preenchido (mesmo
+  `ConditionBuilder`/`ParametersForm` reaproveitados); clicar numa aresta
+  abre o mesmo dialog em modo detalhe (habilitar/desabilitar, remover).
+  Sem posição de nó persistida e sem edição de regra — decisões já
+  tomadas antes, só reforçadas pela interação de arrastar-para-criar.
 
 ## 10. Criterios de aceite
 
