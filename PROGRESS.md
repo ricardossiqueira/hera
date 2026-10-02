@@ -2,6 +2,8 @@
 
 ## Estado atual
 
+- 2026-10-01 — Integração remota concluída: `src/api/device-v2.ts` usa `VITE_GATEWAY_URL` para os seis RPCs `DevicePlatformService` via POST. Fixtures agora exigem `VITE_DEVICE_V2_MOCKS=true`; ausência de URL virou erro de configuração, nunca fallback silencioso. Erros de rede, HTTP, autenticação e JSON inválido são normalizados por `DevicePlatformApiError`; transporte remoto foi testado para todos os RPCs. `npm test` passou (37 testes) e `npm run build` passou; permanece somente o aviso conhecido de bundle acima de 500 kB.
+- 2026-10-01 — Marco de integração remota iniciado: o cliente v2 passará a usar `VITE_GATEWAY_URL` e fixtures ficarão restritos ao opt-in explícito de desenvolvimento (`VITE_DEVICE_V2_MOCKS=true`).
 - 2026-10-01 — Início da implementação. A especificação `DEVICE_PLATFORM_V2_IMPLEMENTATION.md` foi revisada e o front-end atual ainda depende de APIs/fluxos v1 (templates, rotas e manifests manuais).
 - 2026-10-01 — Contrato provisório concluído em `src/api/device-v2.ts` e documentado em `docs/device-v2-api.md`. Inclui tipos de manifest v2, discovery, registro, devices e automações, além de fixtures determinísticos de LED/CYD/Orange Pi.
 - 2026-10-01 — Discovery inbox e fluxo de registro concluídos (`/devices/discovery`). A confirmação mostra identidade, hash, confiança e interface antes de registrar; o navegador não manipula segredos.

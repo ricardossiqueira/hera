@@ -5,8 +5,9 @@ import { authHeader, clearCredentials } from "./auth";
  * has no model-specific fields: the API returns the manifest observed from a
  * device and the UI derives every available output/input from it.
  *
- * Until Frente B exposes these RPCs, requests use deterministic fixtures when
- * VITE_DEVICE_V2_MOCKS=true (also the default when no API URL is configured).
+ * Requests target the Gateway whenever VITE_GATEWAY_URL is configured.
+ * Deterministic fixtures are deliberately available only through the explicit
+ * development opt-in VITE_DEVICE_V2_MOCKS=true.
  */
 export type OutputChannel = "telemetry" | "state" | "event" | "command-result";
 export type FieldType = "boolean" | "string" | "number" | "integer";
@@ -128,20 +129,65 @@ const fixtureRules: AutomationRuleV2[] = [{
   action: { targetDeviceId: "cyd-painel", commandType: "render_system_status", parameters: { timestamp: "2026-10-01T12:00:00Z" } }, updatedAt: "2026-10-01T11:52:00Z",
 }];
 
+export class DevicePlatformApiError extends Error {
+  constructor(message: string, public readonly status?: number, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "DevicePlatformApiError";
+  }
+}
+
 function useMocks() {
-  return import.meta.env.VITE_DEVICE_V2_MOCKS === "true" || !import.meta.env.VITE_GATEWAY_API_BASE_URL?.trim();
+  return import.meta.env.VITE_DEVICE_V2_MOCKS === "true";
+}
+
+function gatewayURL(): string {
+  const value = import.meta.env.VITE_GATEWAY_URL?.trim();
+  if (!value) {
+    throw new DevicePlatformApiError("Defina VITE_GATEWAY_URL ou habilite VITE_DEVICE_V2_MOCKS=true para usar fixtures de desenvolvimento.");
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("unsupported protocol");
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    throw new DevicePlatformApiError("VITE_GATEWAY_URL deve ser uma URL HTTP(S) válida.");
+  }
+}
+
+async function responsePayload(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new DevicePlatformApiError("O Gateway retornou uma resposta JSON inválida.", response.status);
+  }
+}
+
+function errorMessage(payload: unknown, status: number): string {
+  if (typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+  return `API Device Platform respondeu HTTP ${status}.`;
 }
 
 async function requestV2<T>(method: string, body: object): Promise<T> {
-  const baseUrl = import.meta.env.VITE_GATEWAY_API_BASE_URL?.trim().replace(/\/$/, "");
-  if (!baseUrl) throw new Error("Defina VITE_GATEWAY_API_BASE_URL ou VITE_DEVICE_V2_MOCKS=true.");
+  const baseUrl = gatewayURL();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const auth = authHeader();
   if (auth) headers.Authorization = auth;
-  const response = await fetch(`${baseUrl}/iot.gateway.api.v2.DevicePlatformService/${method}`, { method: "POST", headers, credentials: "include", body: JSON.stringify(body) });
-  if (response.status === 401) { clearCredentials(); throw new Error("Usuário ou senha inválidos."); }
-  const payload = await response.json().catch(() => ({})) as { message?: string };
-  if (!response.ok) throw new Error(payload.message ?? `API v2 respondeu HTTP ${response.status}.`);
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/iot.gateway.api.v2.DevicePlatformService/${method}`, { method: "POST", headers, credentials: "include", body: JSON.stringify(body) });
+  } catch (cause) {
+    throw new DevicePlatformApiError("Não foi possível conectar ao Gateway configurado.", undefined, { cause });
+  }
+  if (response.status === 401) {
+    clearCredentials();
+    throw new DevicePlatformApiError("Autenticação com o Gateway falhou. Faça login novamente.", response.status);
+  }
+  const payload = await responsePayload(response);
+  if (!response.ok) throw new DevicePlatformApiError(errorMessage(payload, response.status), response.status);
   return payload as T;
 }
 
