@@ -1,5 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Cpu, FileJson, GitFork, LayoutDashboard, ListOrdered, LogOut, Settings, Stethoscope, Workflow } from "lucide-react";
+import { Cpu, LayoutDashboard, ListOrdered, LogOut, Settings, Workflow } from "lucide-react";
 import { clearCredentials } from "@/api/auth";
 import { IssuesPopover } from "@/components/issues-popover";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +9,8 @@ import { useGateway } from "@/context/gateway-context";
 const navItems = [
   { to: "/", label: "Visão geral", icon: LayoutDashboard },
   { to: "/devices", label: "Dispositivos", icon: Cpu },
-  { to: "/routes", label: "Rotas", icon: GitFork },
-  { to: "/manifests", label: "Manifests", icon: FileJson },
   { to: "/automations", label: "Automações", icon: Workflow },
   { to: "/queue", label: "Fila", icon: ListOrdered },
-  { to: "/diagnostics", label: "Diagnóstico", icon: Stethoscope },
   { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 

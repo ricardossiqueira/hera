@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, ChevronLeft, ChevronRight, Inbox, RefreshCw } from "lucide-react";
 import { getRecentEvents, type GatewayEvent } from "@/api/gateway";
+import { listDevicesV2, type RegisteredDeviceV2 } from "@/api/device-v2";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,16 +26,16 @@ const TIME_WINDOWS = [
 const outcomeLabel: Record<GatewayEvent["outcome"], string> = {
   accepted: "Aceita",
   rejected: "Rejeitada",
-  route_published: "Rota publicada",
-  route_failed: "Rota falhou",
+  v2_rule_fired: "Automação disparada",
 };
 
 function outcomeBadgeVariant(outcome: GatewayEvent["outcome"]) {
-  return outcome === "rejected" || outcome === "route_failed" ? "destructive" : "success";
+  return outcome === "rejected" ? "destructive" : "success";
 }
 
 function RecentEventsCard() {
-  const { devices } = useGateway();
+  const [devices, setDevices] = useState<RegisteredDeviceV2[]>([]);
+  useEffect(() => { void listDevicesV2().then(setDevices).catch(() => setDevices([])); }, []);
   const [deviceId, setDeviceId] = useState(ALL_DEVICES);
   const [windowMinutes, setWindowMinutes] = useState("15");
   // Stack of `beforeSequence` cursors already visited - top of stack is
@@ -96,7 +97,7 @@ function RecentEventsCard() {
               <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_DEVICES}>Todos os devices</SelectItem>
-                {(devices.data ?? []).map((device) => <SelectItem key={device.id} value={device.id}>{device.id}</SelectItem>)}
+                {devices.map((device) => <SelectItem key={device.deviceId} value={device.deviceId}>{device.deviceId}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={windowMinutes} onValueChange={changeWindow}>

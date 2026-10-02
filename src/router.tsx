@@ -1,20 +1,13 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { AutomationsList } from "@/pages/automations";
-import { AutomationDetail } from "@/pages/automations/detail";
 import { NewAutomation } from "@/pages/automations/new";
 import { Devices } from "@/pages/devices";
 import { DeviceDetail } from "@/pages/devices/detail";
 import { Discovery } from "@/pages/devices/discovery";
 import { RegisterDiscoveredDevice } from "@/pages/devices/register";
-import { NewDevice } from "@/pages/devices/new";
-import { RemoveDevice } from "@/pages/devices/remove";
-import { DeviceSettings } from "@/pages/devices/settings";
-import { Manifests } from "@/pages/manifests";
-import { Diagnostics } from "@/pages/diagnostics";
 import { Overview } from "@/pages/overview";
 import { Queue } from "@/pages/queue";
-import { Routes } from "@/pages/routes";
 import { AppSettings } from "@/pages/settings";
 
 const rootRoute = createRootRoute({ component: AppShell });
@@ -25,31 +18,22 @@ const devicesRoute = createRoute({ getParentRoute: () => rootRoute, path: "devic
 const devicesIndexRoute = createRoute({ getParentRoute: () => devicesRoute, path: "/", component: Devices });
 const discoveryRoute = createRoute({ getParentRoute: () => devicesRoute, path: "discovery", component: Discovery });
 const registerDiscoveredDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "discovery/$deviceUid", component: RegisterDiscoveredDevice });
-const newDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "new", component: NewDevice });
 const detailRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId", component: DeviceDetail });
-const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/settings", component: DeviceSettings });
-const removeDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/remove", component: RemoveDevice });
 const queueRoute = createRoute({ getParentRoute: () => rootRoute, path: "queue", component: Queue });
-const routesRoute = createRoute({ getParentRoute: () => rootRoute, path: "routes", component: Routes });
-const manifestsRoute = createRoute({ getParentRoute: () => rootRoute, path: "manifests", component: Manifests });
 // /automations is a layout route, same reasoning as /devices above: each
-// rule gets its own canvas (new.tsx / detail.tsx), not a single shared
-// one, so it needs its own sub-routes.
+// rule gets its own canvas (new.tsx), not a single shared one, so it needs
+// its own sub-routes. There is no detail/$ruleId route any more - V1's
+// edit flow was removed and V2 has no update/remove RPC yet (ADR-017).
 const automationsRoute = createRoute({ getParentRoute: () => rootRoute, path: "automations", component: Outlet });
 const automationsIndexRoute = createRoute({ getParentRoute: () => automationsRoute, path: "/", component: AutomationsList });
 const newAutomationRoute = createRoute({ getParentRoute: () => automationsRoute, path: "new", component: NewAutomation });
-const automationDetailRoute = createRoute({ getParentRoute: () => automationsRoute, path: "$ruleId", component: AutomationDetail });
-const diagnosticsRoute = createRoute({ getParentRoute: () => rootRoute, path: "diagnostics", component: Diagnostics });
 const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "settings", component: AppSettings });
 
 const routeTree = rootRoute.addChildren([
   overviewRoute,
-  devicesRoute.addChildren([devicesIndexRoute, discoveryRoute, registerDiscoveredDeviceRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]),
+  devicesRoute.addChildren([devicesIndexRoute, discoveryRoute, registerDiscoveredDeviceRoute, detailRoute]),
   queueRoute,
-  routesRoute,
-  manifestsRoute,
-  automationsRoute.addChildren([automationsIndexRoute, newAutomationRoute, automationDetailRoute]),
-  diagnosticsRoute,
+  automationsRoute.addChildren([automationsIndexRoute, newAutomationRoute]),
   appSettingsRoute,
 ]);
 

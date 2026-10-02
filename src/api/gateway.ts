@@ -1,20 +1,5 @@
 import { authHeader, clearCredentials } from "./auth";
 
-export interface DeviceTopics {
-  telemetry?: string;
-  state?: string;
-  event?: string;
-  command?: string;
-  commandResult?: string;
-}
-
-export interface Device {
-  id: string;
-  type: string;
-  enabled: boolean;
-  topics?: DeviceTopics;
-}
-
 export interface GatewayStatus {
   startedAt?: string;
   started: boolean;
@@ -29,157 +14,18 @@ export interface GatewayStatus {
   outboxFailed: string;
 }
 
-export interface CommandDescriptor {
-  type: string;
-  parametersJson?: string;
-}
-
-export interface ListDeviceCommandsResponse {
-  deviceId: string;
-  schemaValidated: boolean;
-  commands: CommandDescriptor[];
-}
-
-export interface EventDescriptor {
-  type: string;
-  payloadJson?: string;
-}
-
-export interface ListDeviceEventsResponse {
-  deviceId: string;
-  schemaValidated: boolean;
-  events: EventDescriptor[];
-}
-
-export interface SetDeviceEnabledResponse {
-  device: Device;
-  appliedAt: string;
-}
-
-export interface ProvisionDeviceByIPResponse {
-	device: Device;
-	deviceIp: string;
-	manifestId: string;
-	appliedAt: string;
-}
-
-export interface RegisterExistingDeviceResponse {
-  device: Device;
-  appliedAt: string;
-}
-
-export interface RemoveDeviceResponse {
-  appliedAt: string;
-}
-
-export interface Route {
-  id: string;
-  sourceTopic: string;
-  destinationTopic: string;
-  commandType: string;
-  qos: number;
-  retain: boolean;
-}
-
-export interface CreateRouteResponse {
-  route: Route;
-  appliedAt: string;
-}
-
-// AutomationRule mirrors iot-gateway's registry.AutomationRule (Marco 5,
-// docs/device-manifests.md): "when sourceDeviceId emits eventType, if
-// conditionJson passes, publish actionCommandType to actionDeviceId". No
-// revision history: updates replace the mutable fields in place.
-export interface AutomationRule {
-  id: string;
-  enabled: boolean;
-  sourceDeviceId: string;
-  eventType: string;
-  conditionJson?: string;
-  actionDeviceId: string;
-  actionCommandType: string;
-  actionParametersJson: string;
-  actionSchemaValidated: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateAutomationRuleResponse {
-  rule: AutomationRule;
-  appliedAt: string;
-}
-
-export interface UpdateAutomationRuleResponse {
-  rule: AutomationRule;
-  appliedAt: string;
-}
-
-export interface SetAutomationRuleEnabledResponse {
-  rule: AutomationRule;
-  appliedAt: string;
-}
-
-export interface DeviceManifest {
-  id: string;
-  displayName: string;
-  revision: string;
-  documentJson: string;
-  createdBy: string;
-  createdAt: string;
-}
-
-export interface DeviceManifestBinding {
-	deviceId: string;
-	manifestId: string;
-	manifestRevision: string;
-}
-
-// Inconsistency mirrors iot-gateway's registry.Inconsistency (see
-// docs/api-v1.md's "Inconsistências de provisionamento"): a provisioning
-// operation whose best-effort compensation (rollback) itself failed, left
-// durably recorded. Not a reconciler/retry queue - iot-gateway doesn't have
-// one - just a record for an operator to act on and then resolve.
-export interface Inconsistency {
-  id: string;
-  kind: string;
-  deviceId: string;
-  cause: string;
-  compensationError: string;
-  createdAt: string;
-}
-
-// OrangePiTelemetry mirrors orangepi-monitor's payload
-// (internal/metrics/payload.go): cpu_pct, memory_used_mb, memory_total_mb,
-// disk_used_pct, load_1, temperature_c?, uptime_s, plus message_id/timestamp
-// that GetDeviceTelemetryResponse already surfaces separately as observedAt.
-export interface OrangePiTelemetry {
-  cpu_pct?: number;
-  memory_used_mb?: number;
-  memory_total_mb?: number;
-  disk_used_pct?: number;
-  load_1?: number;
-  temperature_c?: number;
-  uptime_s?: number;
-}
-
-export interface DeviceTelemetry {
-  deviceId: string;
-  available: boolean;
-  payload?: OrangePiTelemetry;
-  observedAt?: string;
-}
-
-// GatewayEvent mirrors iot-gateway's ActivityEvent (docs/api-v1.md's
-// "Atividade recente"): the in-memory, payload-free activity log - not the
-// outbox/fila above. kind is empty for a route_published/route_failed
-// outcome (a route spans two devices, not one).
+// GatewayEvent mirrors iot-gateway's ActivityEvent: the in-memory,
+// payload-free activity log - not the outbox/fila above. kind is empty for
+// a v2_rule_fired outcome (its own device/topic already identify it).
+// "route_published"/"route_failed" existed only for V1's local routes,
+// removed along with the rest of V1 (docs/decisions.md ADR-017).
 export interface GatewayEvent {
   sequence: string;
   timestamp: string;
   deviceId: string;
   kind: string;
   topic: string;
-  outcome: "accepted" | "rejected" | "route_published" | "route_failed";
+  outcome: "accepted" | "rejected" | "v2_rule_fired";
   detail: string;
 }
 
@@ -195,10 +41,11 @@ export interface RecentEventsPage {
   hasMore: boolean;
 }
 
-// QueueSummary mirrors internal/outbox.Snapshot (see docs/api-v1.md's
-// "Resumo da fila"): pending state right now, not GetStatus's lifetime
-// outboxStored/Discarded/Failed counters. oldestEnqueuedAt is unset when
-// pendingMessages is 0.
+// QueueSummary mirrors internal/outbox.Snapshot: pending state right now,
+// not GetStatus's lifetime outboxStored/Discarded/Failed counters.
+// oldestEnqueuedAt is unset when pendingMessages is 0. There is currently no
+// path that enqueues v2 device messages here - a known, documented gap
+// (ADR-017), not a bug if this always reads empty.
 export interface QueueSummary {
   pendingMessages: string;
   pendingBytes: string;
@@ -216,9 +63,7 @@ export class GatewayApiError extends Error {
   }
 }
 
-const deviceService = "/iot.gateway.api.v1.DeviceService";
 const gatewayService = "/iot.gateway.api.v1.GatewayService";
-const deviceAdminService = "/iot.gateway.api.v1.DeviceAdminService";
 
 export function getGatewayApiBaseUrl(): string | undefined {
   const value = import.meta.env.VITE_GATEWAY_API_BASE_URL?.trim();
@@ -300,129 +145,4 @@ export async function getRecentEvents(filter: RecentEventsFilter = {}): Promise<
     beforeSequence: filter.beforeSequence,
   });
   return { events: result.events ?? [], hasMore: result.hasMore ?? false };
-}
-
-export async function listDevices(): Promise<Device[]> {
-  const result = await request<{ devices?: Device[] }>(deviceService + "/ListDevices", {});
-  return result.devices ?? [];
-}
-
-export function listDeviceCommands(deviceId: string): Promise<ListDeviceCommandsResponse> {
-  return request(deviceService + "/ListDeviceCommands", { deviceId });
-}
-
-export function listDeviceEvents(deviceId: string): Promise<ListDeviceEventsResponse> {
-  return request(deviceService + "/ListDeviceEvents", { deviceId });
-}
-
-// getDeviceTelemetry never throws for "nothing received yet" - the gateway
-// answers available:false, not an error (see docs/api-v1.md's "Telemetria
-// em cache"). It still throws GatewayApiError for an unknown device_id or a
-// transport/auth failure, same as every other call here.
-export function getDeviceTelemetry(deviceId: string): Promise<DeviceTelemetry> {
-  return request(deviceService + "/GetDeviceTelemetry", { deviceId });
-}
-
-export function publishCommand(deviceId: string, type: string, parameters: Record<string, unknown>) {
-  return request<{ commandId: string; publishedAt: string }>(deviceService + "/PublishCommand", { deviceId, type, parameters });
-}
-
-// ProvisionDeviceByIP is manifest-driven: the browser selects a published
-// family, while the gateway validates the firmware and sends its one-time
-// MQTT identity directly to the device NVS.
-export function provisionDeviceByIP(deviceId: string, manifestId: string, deviceIp: string): Promise<ProvisionDeviceByIPResponse> {
-	return request(deviceAdminService + "/ProvisionDeviceByIP", { deviceId, manifestId, deviceIp });
-}
-
-// RegisterExistingDevice adopts a known local broker identity. Unlike device
-// provisioning, it neither receives nor rotates an MQTT password.
-export function registerExistingDevice(
-  deviceId: string,
-  template = "orangepi_monitor.v1",
-): Promise<RegisterExistingDeviceResponse> {
-  return request(deviceAdminService + "/RegisterExistingDevice", { deviceId, template });
-}
-
-export function setDeviceEnabled(
-  deviceId: string,
-  enabled: boolean,
-): Promise<SetDeviceEnabledResponse> {
-  return request(deviceAdminService + "/SetDeviceEnabled", { deviceId, enabled });
-}
-
-export function removeDevice(deviceId: string): Promise<RemoveDeviceResponse> {
-  return request(deviceAdminService + "/RemoveDevice", { deviceId });
-}
-
-export function migrateDeviceToManifest(deviceId: string, manifestId: string): Promise<{ device: Device; appliedAt: string }> {
-  return request(deviceAdminService + "/MigrateDeviceToManifest", { deviceId, manifestId });
-}
-
-export async function listRoutes(): Promise<Route[]> {
-  const result = await request<{ routes?: Route[] }>(deviceAdminService + "/ListRoutes", {});
-  return result.routes ?? [];
-}
-
-export function createRoute(route: Route): Promise<CreateRouteResponse> {
-  return request(deviceAdminService + "/CreateRoute", { route });
-}
-
-export function removeRoute(routeId: string): Promise<{ appliedAt: string }> {
-  return request(deviceAdminService + "/RemoveRoute", { routeId });
-}
-
-export async function listAutomationRules(): Promise<AutomationRule[]> {
-  const result = await request<{ rules?: AutomationRule[] }>(deviceAdminService + "/ListAutomationRules", {});
-  return result.rules ?? [];
-}
-
-export function createAutomationRule(rule: Omit<AutomationRule, "createdAt" | "updatedAt" | "actionSchemaValidated">): Promise<CreateAutomationRuleResponse> {
-  return request(deviceAdminService + "/CreateAutomationRule", { rule });
-}
-
-export function updateAutomationRule(rule: Omit<AutomationRule, "createdAt" | "updatedAt" | "actionSchemaValidated">): Promise<UpdateAutomationRuleResponse> {
-  return request(deviceAdminService + "/UpdateAutomationRule", { rule });
-}
-
-export function setAutomationRuleEnabled(ruleId: string, enabled: boolean): Promise<SetAutomationRuleEnabledResponse> {
-  return request(deviceAdminService + "/SetAutomationRuleEnabled", { ruleId, enabled });
-}
-
-export function removeAutomationRule(ruleId: string): Promise<{ appliedAt: string }> {
-  return request(deviceAdminService + "/RemoveAutomationRule", { ruleId });
-}
-
-export async function listDeviceManifests(): Promise<DeviceManifest[]> {
-  const result = await request<{ manifests?: DeviceManifest[] }>(deviceAdminService + "/ListDeviceManifests", {});
-  return result.manifests ?? [];
-}
-
-export function getDeviceManifest(manifestId: string): Promise<{ manifest: DeviceManifest }> {
-	return request(deviceAdminService + "/GetDeviceManifest", { manifestId });
-}
-
-export async function listDeviceManifestBindings(): Promise<DeviceManifestBinding[]> {
-	const result = await request<{ bindings?: DeviceManifestBinding[] }>(deviceAdminService + "/ListDeviceManifestBindings", {});
-	return result.bindings ?? [];
-}
-
-export function createDeviceManifestDraft(documentJson: string): Promise<{ manifest: DeviceManifest }> {
-  return request(deviceAdminService + "/CreateDeviceManifestDraft", { documentJson });
-}
-
-export function createDeviceManifestRevisionDraft(manifestId: string, documentJson: string): Promise<{ manifest: DeviceManifest }> {
-  return request(deviceAdminService + "/CreateDeviceManifestRevisionDraft", { manifestId, documentJson });
-}
-
-export function publishDeviceManifest(manifestId: string, revision: string): Promise<{ manifest: DeviceManifest }> {
-  return request(deviceAdminService + "/PublishDeviceManifest", { manifestId, revision });
-}
-
-export async function listInconsistencies(): Promise<Inconsistency[]> {
-  const result = await request<{ inconsistencies?: Inconsistency[] }>(deviceAdminService + "/ListInconsistencies", {});
-  return result.inconsistencies ?? [];
-}
-
-export function resolveInconsistency(id: string): Promise<Record<string, never>> {
-  return request(deviceAdminService + "/ResolveInconsistency", { id });
 }

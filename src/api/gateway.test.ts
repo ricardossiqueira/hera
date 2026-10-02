@@ -1,20 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getStatus,
-  GatewayApiError,
-  createRoute,
-  listRoutes,
-  listDeviceCommands,
-	provisionDeviceByIP,
-	listDeviceManifestBindings,
-  registerExistingDevice,
-  removeDevice,
-  setDeviceEnabled,
-  createAutomationRule,
-  updateAutomationRule,
-  listAutomationRules,
-  removeAutomationRule,
-} from "./gateway";
+import { getStatus, GatewayApiError } from "./gateway";
 import { clearCredentials, getCredentials, setCredentials } from "./auth";
 
 afterEach(() => {
@@ -66,130 +51,6 @@ describe("getStatus", () => {
     await expect(getStatus()).rejects.toMatchObject({ status: 401 } satisfies Partial<GatewayApiError>);
     expect(getCredentials()).toBeUndefined();
   });
-});
-
-describe("listDeviceCommands", () => {
-  it("consulta o schema de comandos pelo ID do dispositivo", async () => {
-    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      deviceId: "led-1", schemaValidated: true,
-      commands: [{ type: "set_led", parametersJson: '{"on":{"type":"boolean","required":true}}' }],
-    }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(listDeviceCommands("led-1")).resolves.toMatchObject({
-      commands: [{ type: "set_led" }],
-    });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://gateway.local:8082/iot.gateway.api.v1.DeviceService/ListDeviceCommands",
-      expect.objectContaining({ body: JSON.stringify({ deviceId: "led-1" }) }),
-    );
-  });
-});
-
-describe("DeviceAdminService", () => {
-	it("lista o manifest e a revisão usados em cada dispositivo", async () => {
-		vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-			bindings: [{ deviceId: "led-sala", manifestId: "esp32-c3-led", manifestRevision: "2" }],
-		}), { status: 200 }));
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(listDeviceManifestBindings()).resolves.toEqual([
-			{ deviceId: "led-sala", manifestId: "esp32-c3-led", manifestRevision: "2" },
-		]);
-		expect(fetchMock).toHaveBeenCalledWith(
-			"http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ListDeviceManifestBindings",
-			expect.objectContaining({ body: "{}" }),
-		);
-	});
-
-	it("provisiona pelo manifest publicado sem receber senha MQTT no navegador", async () => {
-		vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-			device: { id: "led-sala", type: "esp32c3-led", enabled: true },
-			deviceIp: "192.168.15.43", manifestId: "esp32-c3-led", appliedAt: "2026-09-23T16:00:00Z",
-		}), { status: 200 }));
-		vi.stubGlobal("fetch", fetchMock);
-
-		const response = await provisionDeviceByIP("led-sala", "esp32-c3-led", "192.168.15.43");
-		expect(response).not.toHaveProperty("mqttPassword");
-		expect(fetchMock).toHaveBeenCalledWith(
-			"http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/ProvisionDeviceByIP",
-			expect.objectContaining({ body: JSON.stringify({ deviceId: "led-sala", manifestId: "esp32-c3-led", deviceIp: "192.168.15.43" }) }),
-		);
-	});
-
-  it("adota o orangepi-monitor sem receber nem rotacionar senha MQTT", async () => {
-    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      device: { id: "orangepi-monitor", type: "linux-system-monitor", enabled: true }, appliedAt: "2026-09-23T18:00:00Z",
-    }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(registerExistingDevice("orangepi-monitor")).resolves.toMatchObject({ device: { id: "orangepi-monitor" } });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://gateway.local:8082/iot.gateway.api.v1.DeviceAdminService/RegisterExistingDevice",
-      expect.objectContaining({ body: JSON.stringify({ deviceId: "orangepi-monitor", template: "orangepi_monitor.v1" }) }),
-    );
-  });
-
-  it("chama as operacoes de enabled e remocao", async () => {
-    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ device: { id: "led-1", enabled: false } }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ appliedAt: "2026-09-21T23:00:00Z" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await setDeviceEnabled("led-1", false);
-    await removeDevice("led-1");
-    expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/SetDeviceEnabled");
-    expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/RemoveDevice");
-  });
-
-  it("lista e cria rotas persistidas", async () => {
-    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    const route = {
-      id: "orangepi-to-monitor", sourceTopic: "devices/orangepi-monitor/telemetry",
-      destinationTopic: "devices/monitor/command", commandType: "render_system_status", qos: 1, retain: false,
-    };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ routes: [route] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ route, appliedAt: "2026-09-23T18:00:00Z" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(listRoutes()).resolves.toEqual([route]);
-    await expect(createRoute(route)).resolves.toMatchObject({ route });
-    expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListRoutes");
-    expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateRoute");
-  });
-
-  it("lista, cria e remove regras de automação", async () => {
-    vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    const rule = {
-      id: "led-1-button_pressed-to-led-2", enabled: true, sourceDeviceId: "led-1", eventType: "button_pressed",
-      conditionJson: "", actionDeviceId: "led-2", actionCommandType: "set_led", actionParametersJson: "{\"on\":true}",
-      actionSchemaValidated: true, createdAt: "2026-09-24T12:00:00Z", updatedAt: "2026-09-24T12:00:00Z",
-    };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ rules: [rule] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ rule, appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ rule, appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(listAutomationRules()).resolves.toEqual([rule]);
-    await expect(createAutomationRule(rule)).resolves.toMatchObject({ rule });
-    await expect(updateAutomationRule(rule)).resolves.toMatchObject({ rule });
-    await expect(removeAutomationRule(rule.id)).resolves.toMatchObject({ appliedAt: "2026-09-24T12:00:00Z" });
-    expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListAutomationRules");
-    expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateAutomationRule");
-    expect(fetchMock.mock.calls[2][0]).toContain("DeviceAdminService/UpdateAutomationRule");
-    expect(fetchMock.mock.calls[3][0]).toContain("DeviceAdminService/RemoveAutomationRule");
-  });
 
   it("traduz o codigo Connect already_exists para uma mensagem acionavel", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
@@ -197,7 +58,7 @@ describe("DeviceAdminService", () => {
       code: "already_exists", message: "raw server message",
     }), { status: 409 })));
 
-    await expect(provisionDeviceByIP("led-1", "esp32-c3-led", "192.168.15.43")).rejects.toMatchObject({
+    await expect(getStatus()).rejects.toMatchObject({
       code: "already_exists",
       message: expect.stringContaining("ID já em uso"),
     } satisfies Partial<GatewayApiError>);
