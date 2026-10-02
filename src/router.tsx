@@ -5,6 +5,8 @@ import { AutomationDetail } from "@/pages/automations/detail";
 import { NewAutomation } from "@/pages/automations/new";
 import { Devices } from "@/pages/devices";
 import { DeviceDetail } from "@/pages/devices/detail";
+import { Discovery } from "@/pages/devices/discovery";
+import { RegisterDiscoveredDevice } from "@/pages/devices/register";
 import { NewDevice } from "@/pages/devices/new";
 import { RemoveDevice } from "@/pages/devices/remove";
 import { DeviceSettings } from "@/pages/devices/settings";
@@ -21,6 +23,8 @@ const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", 
 // changes the URL but the list component keeps rendering over every child.
 const devicesRoute = createRoute({ getParentRoute: () => rootRoute, path: "devices", component: Outlet });
 const devicesIndexRoute = createRoute({ getParentRoute: () => devicesRoute, path: "/", component: Devices });
+const discoveryRoute = createRoute({ getParentRoute: () => devicesRoute, path: "discovery", component: Discovery });
+const registerDiscoveredDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "discovery/$deviceUid", component: RegisterDiscoveredDevice });
 const newDeviceRoute = createRoute({ getParentRoute: () => devicesRoute, path: "new", component: NewDevice });
 const detailRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId", component: DeviceDetail });
 const settingsRoute = createRoute({ getParentRoute: () => devicesRoute, path: "$deviceId/settings", component: DeviceSettings });
@@ -40,7 +44,7 @@ const appSettingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "s
 
 const routeTree = rootRoute.addChildren([
   overviewRoute,
-  devicesRoute.addChildren([devicesIndexRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]),
+  devicesRoute.addChildren([devicesIndexRoute, discoveryRoute, registerDiscoveredDeviceRoute, newDeviceRoute, detailRoute, settingsRoute, removeDeviceRoute]),
   queueRoute,
   routesRoute,
   manifestsRoute,
