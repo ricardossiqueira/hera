@@ -17,9 +17,11 @@ export type ComparisonOperatorBlockPayload = { kind: "comparison-operator"; oper
 export type ComparisonTypeBlockPayload = { kind: "comparison-type"; valueType: "string" | "number" | "boolean" };
 export type ComparisonValueBlockPayload = { kind: "comparison-value"; value: string };
 export type EventTypeBlockPayload = { kind: "event-type"; eventType: string };
+export type OutputChannelBlockPayload = { kind: "output-channel"; channel: "telemetry" | "state" | "event" | "command-result" };
+export type IgnoreRetainedBlockPayload = { kind: "ignore-retained"; value: boolean };
 export type ActionCommandBlockPayload = { kind: "action-command"; commandType: string };
 export type ActionBooleanParameterBlockPayload = { kind: "action-boolean-parameter"; parameter: string; value: boolean };
-export type BlockDragPayload = DeviceBlockPayload | ConditionBlockPayload | ComparisonFieldBlockPayload | ComparisonOperatorBlockPayload | ComparisonTypeBlockPayload | ComparisonValueBlockPayload | EventTypeBlockPayload | ActionCommandBlockPayload | ActionBooleanParameterBlockPayload;
+export type BlockDragPayload = DeviceBlockPayload | ConditionBlockPayload | ComparisonFieldBlockPayload | ComparisonOperatorBlockPayload | ComparisonTypeBlockPayload | ComparisonValueBlockPayload | EventTypeBlockPayload | OutputChannelBlockPayload | IgnoreRetainedBlockPayload | ActionCommandBlockPayload | ActionBooleanParameterBlockPayload;
 
 export function setBlockDragPayload(event: React.DragEvent, payload: BlockDragPayload): void {
   event.dataTransfer.setData(BLOCK_DRAG_MIME, JSON.stringify(payload));

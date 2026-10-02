@@ -1,13 +1,16 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import type { CommandDescriptor } from "@/api/gateway";
 import type { ParameterSchema } from "@/components/parameters-form";
+
+// Minimal shape both V1's CommandDescriptor and V2's CommandDefinitionV2
+// satisfy - only `.type` is ever read here or in block-sidebar.tsx.
+export interface ActionCommandOption { type: string }
 
 export interface ActionNodeData extends Record<string, unknown> {
   mode: "create" | "edit" | "read_only";
   isSelected?: boolean;
   deviceId: string;
   commandType: string;
-  commandOptions: CommandDescriptor[];
+  commandOptions: ActionCommandOption[];
   parametersSchema: ParameterSchema;
   parametersValues: Record<string, string | boolean>;
   parametersJson: string;

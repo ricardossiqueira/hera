@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Background, Controls, MarkerType, ReactFlow, ReactFlowProvider, useNodesInitialized, useNodesState, useReactFlow, type Edge, type XYPosition } from "@xyflow/react";
 import { toast } from "sonner";
 import { ActionNode, type ActionFlowNode, type ActionNodeData } from "@/components/automation-flow/action-node";
-import { BlockSidebar } from "@/components/automation-flow/block-sidebar";
+import { BlockSidebar, type SidebarDevice } from "@/components/automation-flow/block-sidebar";
 import { CombinatorNode } from "@/components/automation-flow/condition-flow/combinator-node";
 import { ComparisonNode, type ComparisonFlowNode } from "@/components/automation-flow/condition-flow/comparison-node";
 import type { ConditionFlowNode } from "@/components/automation-flow/condition-flow/layout";
@@ -33,6 +33,7 @@ const initialNodes = [
 type CanvasNode = EventFlowNode | ActionFlowNode | ConditionFlowNode;
 
 interface RuleCanvasProps {
+  devices: SidebarDevice[];
   eventData: EventNodeData;
   conditionData: ConditionNodeData;
   actionData: ActionNodeData;
@@ -68,7 +69,7 @@ function resolveConditionTarget(selectedId: string | null, condition: UseConditi
 
 // RuleCanvasInner needs useReactFlow() (for fitView, see below), which
 // only works inside a ReactFlowProvider - RuleCanvas supplies that.
-function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasProps) {
+function RuleCanvasInner({ devices, eventData, conditionData, actionData }: RuleCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initialNodes);
   const { fitView } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
@@ -128,6 +129,14 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
       }
       if (payload.kind === "event-type") {
         if (selectedId === EVENT_NODE_ID) eventData.onEventTypeChange?.(payload.eventType);
+        return;
+      }
+      if (payload.kind === "output-channel") {
+        if (selectedId === EVENT_NODE_ID) eventData.onOutputChannelChange?.(payload.channel);
+        return;
+      }
+      if (payload.kind === "ignore-retained") {
+        if (selectedId === EVENT_NODE_ID) eventData.onIgnoreRetainedChange?.(payload.value);
         return;
       }
       if (payload.kind === "action-command") {
@@ -212,6 +221,7 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
   return (
     <div className="flex gap-3">
       <BlockSidebar
+        devices={devices}
         showDevices={showDevices}
         showConditionBlocks={showConditionBlocks}
         readOnly={conditionData.mode === "read_only"}

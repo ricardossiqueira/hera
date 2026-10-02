@@ -37,7 +37,8 @@ function savedParameters(parametersJson: string): { schema: ParameterSchema; val
 export function AutomationDetail() {
   const { ruleId } = useParams({ from: "/automations/$ruleId" });
   const navigate = useNavigate();
-  const { reportError } = useGateway();
+  const { devices: gatewayDevices, reportError } = useGateway();
+  const sidebarDevices = useMemo(() => (gatewayDevices.data ?? []).filter((device) => device.enabled && (device.topics?.event || device.topics?.command)).map((device) => ({ id: device.id, supportsEvent: Boolean(device.topics?.event), supportsCommand: Boolean(device.topics?.command) })), [gatewayDevices.data]);
   const [rule, setRule] = useState<AutomationRule>();
   const [sourceDeviceId, setSourceDeviceId] = useState("");
   const [eventType, setEventType] = useState("");
@@ -134,7 +135,7 @@ export function AutomationDetail() {
 
   return <>
     <PageHeading title={rule.id} description="Edite o fluxo e salve as alterações para atualizar esta automação." action={<Button variant="outline" asChild><Link to="/automations">Voltar</Link></Button>} />
-    <RuleCanvas eventData={eventData} conditionData={conditionData} actionData={actionData} />
+    <RuleCanvas devices={sidebarDevices} eventData={eventData} conditionData={conditionData} actionData={actionData} />
     <Card className="mt-4"><CardContent className="flex flex-wrap items-center gap-4">
       <div className="flex items-center gap-2"><Label htmlFor="automation-detail-enabled">Habilitada</Label><Switch id="automation-detail-enabled" checked={enabled} disabled={submitting} onCheckedChange={setEnabled} /></div>
       <Button className="ml-auto" disabled={submitting || events.loading || commands.loading || !sourceDeviceId || !eventType || !actionDeviceId || !actionCommandType} onClick={() => void save()}>Salvar alterações</Button>
