@@ -238,6 +238,23 @@ export async function createAutomationRuleV2(rule: Omit<AutomationRuleV2, "updat
   return result.rule;
 }
 
+export interface TelemetrySnapshotV2 {
+  available: boolean;
+  fields?: Record<string, unknown>;
+  timestamp?: string;
+  messageId?: string;
+}
+const fixtureTelemetry: Record<string, TelemetrySnapshotV2> = {
+  "orangepi-monitor": { available: true, fields: { cpu_pct: 12.5, memory_used_mb: 512, memory_total_mb: 2048, disk_used_pct: 34.2, load_1: 0.42, temperature_c: 46.1, uptime_s: 86400 }, timestamp: "2026-10-01T12:00:00Z", messageId: "b4a5bb31-1710-4f7b-a043-1b6a292d04ad" },
+};
+/** No cached value is a normal, expected state (device never published, or
+ * the gateway restarted and the in-memory cache is empty) - not an error the
+ * caller needs to catch. */
+export async function getDeviceTelemetryV2(deviceId: string): Promise<TelemetrySnapshotV2> {
+  if (useMocks()) return fixtureTelemetry[deviceId] ?? { available: false };
+  return requestV2("GetDeviceTelemetry", { deviceId });
+}
+
 export interface PublishCommandResponseV2 {
   commandId: string;
   publishedAt: string;

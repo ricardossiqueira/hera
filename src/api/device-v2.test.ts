@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DevicePlatformApiError,
   createAutomationRuleV2,
+  getDeviceTelemetryV2,
   getDeviceV2,
   listAutomationRulesV2,
   listDevicesV2,
@@ -18,6 +19,8 @@ describe("device-v2 API contract", () => {
     const entries = await listDiscoveryV2();
     expect(entries).toEqual(expect.arrayContaining([expect.objectContaining({ deviceUid: "esp32c3-42a9", manifest: expect.objectContaining({ schema_version: 2 }) })]));
     await expect(registerDiscoveredDeviceV2("esp32c3-42a9", "led-novo")).resolves.toMatchObject({ device: { deviceId: "led-novo", activeState: "active" }, steps: expect.arrayContaining([expect.objectContaining({ id: "activation", status: "complete" })]) });
+    await expect(getDeviceTelemetryV2("orangepi-monitor")).resolves.toMatchObject({ available: true, fields: expect.objectContaining({ cpu_pct: 12.5 }) });
+    await expect(getDeviceTelemetryV2("led-novo")).resolves.toEqual({ available: false });
   });
 
   it("uses VITE_GATEWAY_URL and POST for every remote v2 RPC without exposing MQTT credentials", async () => {
@@ -31,6 +34,7 @@ describe("device-v2 API contract", () => {
       GetDevice: { deviceId: "led-novo" },
       ListAutomationRules: { rules: [] },
       CreateAutomationRule: { rule },
+      GetDeviceTelemetry: { available: true, fields: { cpu_pct: 12.5 }, timestamp: "2026-10-01T12:00:00Z", messageId: "msg-1" },
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -43,8 +47,9 @@ describe("device-v2 API contract", () => {
     await listDevicesV2();
     await getDeviceV2("led-novo");
     await listAutomationRulesV2();
+    await getDeviceTelemetryV2("led-novo");
     await expect(createAutomationRuleV2(rule)).resolves.toEqual(rule);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     for (const [url, options] of fetchMock.mock.calls) {
       expect(url).toMatch(/^http:\/\/gateway\.local:8082\/iot\.gateway\.api\.v2\.DevicePlatformService\//);
       expect(options).toEqual(expect.objectContaining({ method: "POST", credentials: "include", headers: expect.objectContaining({ "Content-Type": "application/json" }) }));

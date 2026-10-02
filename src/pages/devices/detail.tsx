@@ -1,14 +1,55 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, FileJson } from "lucide-react";
+import { ArrowLeft, FileJson, Gauge } from "lucide-react";
 import { toast } from "sonner";
-import { type CommandDefinitionV2, type DeviceManifestV2, type RegisteredDeviceV2, getDeviceV2, publishCommandV2 } from "@/api/device-v2";
+import { type CommandDefinitionV2, type DeviceManifestV2, type RegisteredDeviceV2, type TelemetrySnapshotV2, getDeviceTelemetryV2, getDeviceV2, publishCommandV2 } from "@/api/device-v2";
 import { DeviceInterface } from "@/components/device-interface";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { formatDate } from "@/lib/format";
+
+const TELEMETRY_POLL_MS = 10_000;
+
+/** Only rendered when the manifest actually declares a "telemetry" output -
+ * most v2 devices (LED, CYD) don't publish it at all. */
+function TelemetryCard({ deviceId, manifest }: { deviceId: string; manifest: DeviceManifestV2 }) {
+  const telemetryOutput = manifest.mqtt.publish.find((output) => output.channel === "telemetry");
+  const [snapshot, setSnapshot] = useState<TelemetrySnapshotV2>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (!telemetryOutput) return;
+    let cancelled = false;
+    const fetchSnapshot = () => {
+      getDeviceTelemetryV2(deviceId)
+        .then((result) => { if (!cancelled) { setSnapshot(result); setError(undefined); } })
+        .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "Falha ao carregar telemetria."); });
+    };
+    fetchSnapshot();
+    const timer = window.setInterval(fetchSnapshot, TELEMETRY_POLL_MS);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [deviceId, telemetryOutput]);
+  if (!telemetryOutput) return null;
+  return <Card>
+    <CardHeader><CardTitle className="flex items-center gap-2"><Gauge className="size-4" /> Telemetria</CardTitle></CardHeader>
+    <CardContent className="space-y-3">
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {!error && snapshot?.available ? <>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(snapshot.fields ?? {}).map(([name, value]) => (
+            <div key={name}><dt className="text-muted-foreground"><code>{name}</code></dt><dd className="mt-0.5 font-medium">{String(value)}</dd></div>
+          ))}
+        </dl>
+        <p className="text-xs text-muted-foreground">Último valor recebido em {formatDate(snapshot.timestamp)}.</p>
+      </> : null}
+      {!error && snapshot && !snapshot.available ? (
+        <p className="text-sm text-muted-foreground">Sem dados ainda — o device não publicou telemetria desde que o gateway foi iniciado pela última vez.</p>
+      ) : null}
+    </CardContent>
+  </Card>;
+}
 
 /**
  * Minimal manual test control: a toggle for any declared command whose
@@ -65,6 +106,7 @@ export function DeviceDetail() {
     <div className="space-y-4"><Card><CardHeader><CardTitle>Binding ativo</CardTitle></CardHeader><CardContent className="grid gap-4 text-sm md:grid-cols-3"><dl><dt className="text-muted-foreground">UID imutável</dt><dd className="mt-1 font-mono">{device.deviceUid}</dd></dl><dl><dt className="text-muted-foreground">Manifest</dt><dd className="mt-1">{device.manifest.manifest_id} <span className="font-mono text-xs">({device.manifestRevision})</span></dd></dl><dl><dt className="text-muted-foreground">Estado</dt><dd className="mt-1"><Badge variant={device.activeState === "active" ? "success" : "outline"}>{device.activeState}</Badge></dd></dl><dl><dt className="text-muted-foreground">Hash aceito</dt><dd className="mt-1 break-all font-mono text-xs">{device.manifestHash}</dd></dl><dl><dt className="text-muted-foreground">Identidade</dt><dd className="mt-1 font-mono text-xs">{device.identityFingerprint}</dd></dl><dl><dt className="text-muted-foreground">Atualizado</dt><dd className="mt-1">{new Date(device.updatedAt).toLocaleString()}</dd></dl></CardContent></Card>
       {device.recoveryReason ? <Card><CardContent><p className="text-destructive">Recuperação necessária: {device.recoveryReason}</p></CardContent></Card> : null}
       <CommandControls deviceId={device.deviceId} manifest={device.manifest} />
+      <TelemetryCard deviceId={device.deviceId} manifest={device.manifest} />
       <DeviceInterface manifest={device.manifest} />
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><FileJson className="size-4" /> Manifest observado</CardTitle></CardHeader><CardContent><pre className="max-h-96 overflow-auto rounded bg-muted p-3 text-xs">{JSON.stringify(device.manifest, null, 2)}</pre></CardContent></Card>
     </div>
