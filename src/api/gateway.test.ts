@@ -11,6 +11,7 @@ import {
   removeDevice,
   setDeviceEnabled,
   createAutomationRule,
+  updateAutomationRule,
   listAutomationRules,
   removeAutomationRule,
 } from "./gateway";
@@ -176,15 +177,18 @@ describe("DeviceAdminService", () => {
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ rules: [rule] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ rule, appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rule, appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ appliedAt: "2026-09-24T12:00:00Z" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(listAutomationRules()).resolves.toEqual([rule]);
     await expect(createAutomationRule(rule)).resolves.toMatchObject({ rule });
+    await expect(updateAutomationRule(rule)).resolves.toMatchObject({ rule });
     await expect(removeAutomationRule(rule.id)).resolves.toMatchObject({ appliedAt: "2026-09-24T12:00:00Z" });
     expect(fetchMock.mock.calls[0][0]).toContain("DeviceAdminService/ListAutomationRules");
     expect(fetchMock.mock.calls[1][0]).toContain("DeviceAdminService/CreateAutomationRule");
-    expect(fetchMock.mock.calls[2][0]).toContain("DeviceAdminService/RemoveAutomationRule");
+    expect(fetchMock.mock.calls[2][0]).toContain("DeviceAdminService/UpdateAutomationRule");
+    expect(fetchMock.mock.calls[3][0]).toContain("DeviceAdminService/RemoveAutomationRule");
   });
 
   it("traduz o codigo Connect already_exists para uma mensagem acionavel", async () => {

@@ -12,7 +12,14 @@ const BLOCK_DRAG_MIME = "application/x-automation-block";
 // threaded down to it separately.
 export type DeviceBlockPayload = { kind: "device"; deviceId: string; supportsEvent: boolean; supportsCommand: boolean };
 export type ConditionBlockPayload = { kind: AddableKind };
-export type BlockDragPayload = DeviceBlockPayload | ConditionBlockPayload;
+export type ComparisonFieldBlockPayload = { kind: "comparison-field"; field: string };
+export type ComparisonOperatorBlockPayload = { kind: "comparison-operator"; operator: "==" | "!=" | "<" | "<=" | ">" | ">=" };
+export type ComparisonTypeBlockPayload = { kind: "comparison-type"; valueType: "string" | "number" | "boolean" };
+export type ComparisonValueBlockPayload = { kind: "comparison-value"; value: string };
+export type EventTypeBlockPayload = { kind: "event-type"; eventType: string };
+export type ActionCommandBlockPayload = { kind: "action-command"; commandType: string };
+export type ActionBooleanParameterBlockPayload = { kind: "action-boolean-parameter"; parameter: string; value: boolean };
+export type BlockDragPayload = DeviceBlockPayload | ConditionBlockPayload | ComparisonFieldBlockPayload | ComparisonOperatorBlockPayload | ComparisonTypeBlockPayload | ComparisonValueBlockPayload | EventTypeBlockPayload | ActionCommandBlockPayload | ActionBooleanParameterBlockPayload;
 
 export function setBlockDragPayload(event: React.DragEvent, payload: BlockDragPayload): void {
   event.dataTransfer.setData(BLOCK_DRAG_MIME, JSON.stringify(payload));

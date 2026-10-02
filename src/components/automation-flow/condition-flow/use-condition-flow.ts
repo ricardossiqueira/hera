@@ -6,7 +6,7 @@ import { parseCondition, serializeCondition } from "./serialize";
 import type { ConditionTree } from "./types";
 
 export interface UseConditionFlowArgs {
-  mode: "create" | "detail";
+  mode: "create" | "edit" | "read_only";
   conditionJson: string;
   fieldSuggestions: string[];
   anchor: XYPosition;
@@ -37,6 +37,7 @@ export function useConditionFlow({ mode, conditionJson, fieldSuggestions, anchor
   const updateNodeInternals = useUpdateNodeInternals();
 
   const mutate = useCallback((next: ConditionTree, changedHandleNodeIds: string[]) => {
+    if (mode === "read_only") return;
     setTree(next);
     onChange?.(serializeCondition(next));
     // Handle sets don't change dynamically any more (every condition-flow
@@ -46,7 +47,7 @@ export function useConditionFlow({ mode, conditionJson, fieldSuggestions, anchor
     // handle; harmless either way, including for an id that no longer
     // exists (e.g. the tree's own placeholder-less empty-root id).
     for (const id of changedHandleNodeIds) updateNodeInternals(id);
-  }, [onChange, updateNodeInternals]);
+  }, [mode, onChange, updateNodeInternals]);
 
   const callbacks: ConditionFlowCallbacks = useMemo(() => ({
     onUpdateLeaf: (id, patch) => mutate(updateLeaf(tree, id, patch), []),

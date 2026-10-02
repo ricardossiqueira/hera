@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { ActionNode, type ActionFlowNode, type ActionNodeData } from "@/components/automation-flow/action-node";
 import { BlockSidebar } from "@/components/automation-flow/block-sidebar";
 import { CombinatorNode } from "@/components/automation-flow/condition-flow/combinator-node";
-import { ComparisonNode } from "@/components/automation-flow/condition-flow/comparison-node";
+import { ComparisonNode, type ComparisonFlowNode } from "@/components/automation-flow/condition-flow/comparison-node";
 import type { ConditionFlowNode } from "@/components/automation-flow/condition-flow/layout";
 import { NotNode } from "@/components/automation-flow/condition-flow/not-node";
 import type { ConditionNodeData } from "@/components/automation-flow/condition-flow/types";
@@ -24,7 +24,6 @@ export const ACTION_NODE_ID = "action";
 // to sit; ACTION_GAP is the breathing room kept between the tree's
 // measured right edge (condition-flow/layout.ts's `width`) and Ação.
 const CONDITION_ANCHOR: XYPosition = { x: 340, y: 0 };
-const ACTION_GAP = 60;
 
 const initialNodes = [
   { id: EVENT_NODE_ID, type: "event" as const, position: { x: 0, y: 40 }, data: {} as EventNodeData },
@@ -84,8 +83,6 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
     onChange: conditionData.onChange,
   });
 
-  const actionX = CONDITION_ANCHOR.x + condition.width + ACTION_GAP;
-
   // Condition-tree nodes live inside the same React-Flow-managed `nodes`
   // state as Evento/Ação (not spliced in fresh at render time), so React
   // Flow's own measurement tracking (node.measured, set once via
@@ -106,7 +103,7 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
       const byId = new Map(current.map((node) => [node.id, node]));
       const mergedCondition = condition.nodes.map((fresh) => {
         const existing = byId.get(fresh.id);
-        return existing ? { ...fresh, measured: existing.measured, width: existing.width, height: existing.height } : fresh;
+        return existing ? { ...fresh, position: existing.position, measured: existing.measured, width: existing.width, height: existing.height } : fresh;
       }) as ConditionFlowNode[];
       const event = (byId.get(EVENT_NODE_ID) ?? initialNodes[0]) as EventFlowNode;
       const action = (byId.get(ACTION_NODE_ID) ?? initialNodes[1]) as ActionFlowNode;
@@ -129,6 +126,28 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
         }
         return;
       }
+      if (payload.kind === "event-type") {
+        if (selectedId === EVENT_NODE_ID) eventData.onEventTypeChange?.(payload.eventType);
+        return;
+      }
+      if (payload.kind === "action-command") {
+        if (selectedId === ACTION_NODE_ID) actionData.onCommandChange?.(payload.commandType);
+        return;
+      }
+      if (payload.kind === "action-boolean-parameter") {
+        if (selectedId === ACTION_NODE_ID) actionData.onParametersChange?.({ ...actionData.parametersValues, [payload.parameter]: payload.value });
+        return;
+      }
+      const selectedComparison = condition.nodes.find((node) => node.id === selectedId && node.type === "comparison") as ComparisonFlowNode | undefined;
+      if (payload.kind === "comparison-field") { selectedComparison?.data.onChange?.({ field: payload.field }); return; }
+      if (payload.kind === "comparison-operator") { selectedComparison?.data.onChange?.({ operator: payload.operator }); return; }
+      if (payload.kind === "comparison-type") {
+        if (!selectedComparison) return;
+        const value = payload.valueType === "boolean" && selectedComparison.data.value !== "true" && selectedComparison.data.value !== "false" ? "true" : selectedComparison.data.value;
+        selectedComparison.data.onChange?.({ type: payload.valueType, value });
+        return;
+      }
+      if (payload.kind === "comparison-value") { selectedComparison?.data.onChange?.({ value: payload.value }); return; }
       const targetId = resolveConditionTarget(selectedId, condition);
       if (targetId) condition.handleDrop(payload.kind, targetId);
     },
@@ -149,7 +168,7 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
     ...(eventNode ? [{ ...eventNode, data: { ...eventData, isSelected: selectedId === EVENT_NODE_ID } }] : []),
     ...nodes.filter((node) => node.id !== EVENT_NODE_ID && node.id !== ACTION_NODE_ID)
       .map((node) => ({ ...node, data: { ...node.data, isSelected: node.id === selectedId } }) as ConditionFlowNode),
-    ...(actionNode ? [{ ...actionNode, data: { ...actionData, isSelected: selectedId === ACTION_NODE_ID }, position: { ...actionNode.position, x: actionX } }] : []),
+    ...(actionNode ? [{ ...actionNode, data: { ...actionData, isSelected: selectedId === ACTION_NODE_ID } }] : []),
   ];
 
   // condition.edges (the tree's own parent->child structure - and->its
@@ -192,11 +211,19 @@ function RuleCanvasInner({ eventData, conditionData, actionData }: RuleCanvasPro
 
   return (
     <div className="flex gap-3">
-      {conditionData.mode === "create" ? <BlockSidebar showDevices={showDevices} showConditionBlocks={showConditionBlocks} /> : null}
+      <BlockSidebar
+        showDevices={showDevices}
+        showConditionBlocks={showConditionBlocks}
+        readOnly={conditionData.mode === "read_only"}
+        selectedId={selectedId}
+        eventData={eventData}
+        actionData={actionData}
+        selectedCondition={condition.nodes.find((node) => node.id === selectedId)}
+      />
       <div
         className="h-[70vh] min-w-0 flex-1 overflow-hidden rounded-lg border border-border"
-        onDragOver={conditionData.mode === "create" ? dropTarget.onDragOver : undefined}
-        onDrop={conditionData.mode === "create" ? dropTarget.onDrop : undefined}
+        onDragOver={conditionData.mode !== "read_only" ? dropTarget.onDragOver : undefined}
+        onDrop={conditionData.mode !== "read_only" ? dropTarget.onDrop : undefined}
       >
         <ReactFlow
           nodes={displayNodes}

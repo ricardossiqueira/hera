@@ -64,7 +64,7 @@ function edgeTo(sourceId: string, targetId: string): Edge {
 
 type NonEmptyTree = Exclude<ConditionTree, { kind: "empty" }>;
 
-function buildNode(tree: NonEmptyTree, position: XYPosition, mode: "create" | "detail", fieldSuggestions: string[], depth: number, callbacks: ConditionFlowCallbacks): ConditionFlowNode {
+function buildNode(tree: NonEmptyTree, position: XYPosition, mode: "create" | "edit" | "read_only", fieldSuggestions: string[], depth: number, callbacks: ConditionFlowCallbacks): ConditionFlowNode {
   switch (tree.kind) {
     case "comparison":
       return {
@@ -98,7 +98,7 @@ function buildNode(tree: NonEmptyTree, position: XYPosition, mode: "create" | "d
 // as TypeScript can tell (children: ConditionTree[]), even though it
 // never occurs below the root by construction (mutations.ts never nests
 // one) - the guard below is what actually narrows it for buildNode.
-function walk(tree: ConditionTree, positions: Map<string, PositionInfo>, anchor: XYPosition, mode: "create" | "detail", fieldSuggestions: string[], callbacks: ConditionFlowCallbacks, nodes: ConditionFlowNode[], edges: Edge[]) {
+function walk(tree: ConditionTree, positions: Map<string, PositionInfo>, anchor: XYPosition, mode: "create" | "edit" | "read_only", fieldSuggestions: string[], callbacks: ConditionFlowCallbacks, nodes: ConditionFlowNode[], edges: Edge[]) {
   if (tree.kind === "empty") return;
   const info = positions.get(tree.id);
   if (!info) return;
@@ -120,7 +120,7 @@ function walk(tree: ConditionTree, positions: Map<string, PositionInfo>, anchor:
 // condition yet) renders nothing - there's no placeholder block; building
 // starts by selecting Evento or Ação and dragging a block from the
 // sidebar (see rule-canvas.tsx / block-sidebar.tsx).
-export function layoutConditionTree(tree: ConditionTree, anchor: XYPosition, mode: "create" | "detail", fieldSuggestions: string[], callbacks: ConditionFlowCallbacks): ConditionLayout {
+export function layoutConditionTree(tree: ConditionTree, anchor: XYPosition, mode: "create" | "edit" | "read_only", fieldSuggestions: string[], callbacks: ConditionFlowCallbacks): ConditionLayout {
   if (tree.kind === "empty") return { nodes: [], edges: [], rootId: tree.id, width: 0, height: 0 };
 
   const positions = new Map<string, PositionInfo>();

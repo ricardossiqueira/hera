@@ -28,18 +28,19 @@ export function coerceParameterValues(schema: ParameterSchema, values: Record<st
 // and decides what to do with them (publish immediately, as
 // devices/detail.tsx's CommandForm does, or serialize into an automation
 // rule's actionParametersJson, as pages/automations.tsx does).
-export function ParametersForm({ idPrefix, schema, values, onChange }: {
+export function ParametersForm({ idPrefix, schema, values, onChange, disabled = false }: {
   idPrefix: string;
   schema: ParameterSchema;
   values: Record<string, string | boolean>;
   onChange: (values: Record<string, string | boolean>) => void;
+  disabled?: boolean;
 }) {
   const setValue = (name: string, value: string | boolean) => onChange({ ...values, [name]: value });
   return <>
     {Object.entries(schema).map(([name, field]) => <div key={name} className="mt-3 space-y-1.5">
       <Label htmlFor={`${idPrefix}-${name}`}>{name}{field.required ? " *" : ""}</Label>
-      {field.type === "boolean" ? <input id={`${idPrefix}-${name}`} type="checkbox" checked={values[name] === true} onChange={(event) => setValue(name, event.target.checked)} /> :
-        <Input id={`${idPrefix}-${name}`} type={field.type === "number" || field.type === "integer" ? "number" : "text"} value={typeof values[name] === "string" ? values[name] : ""} onChange={(event) => setValue(name, event.target.value)} />}
+      {field.type === "boolean" ? <input id={`${idPrefix}-${name}`} type="checkbox" checked={values[name] === true} disabled={disabled} onChange={(event) => setValue(name, event.target.checked)} /> :
+        <Input id={`${idPrefix}-${name}`} type={field.type === "number" || field.type === "integer" ? "number" : "text"} value={typeof values[name] === "string" ? values[name] : ""} disabled={disabled} onChange={(event) => setValue(name, event.target.value)} />}
     </div>)}
   </>;
 }

@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface CombinatorNodeData extends Record<string, unknown> {
-  mode: "create" | "detail";
+  mode: "create" | "edit" | "read_only";
   // See event-node.tsx's doc comment on isSelected.
   isSelected?: boolean;
   kind: "and" | "or";
@@ -30,7 +30,7 @@ export type CombinatorFlowNode = Node<CombinatorNodeData, "combinator">;
 // condition-flow node type carries.
 export function CombinatorNode({ data }: NodeProps<CombinatorFlowNode>) {
   const label = data.kind === "and" ? "E" : "OU";
-  const droppable = data.mode === "create" && data.canAddChild;
+  const droppable = data.mode !== "read_only" && data.canAddChild;
   return (
     <div
       className={
@@ -39,23 +39,18 @@ export function CombinatorNode({ data }: NodeProps<CombinatorFlowNode>) {
       }
       title={droppable ? "Solte um bloco de condição aqui para adicionar" : undefined}
     >
-      {data.mode === "create" ? (
-        <button
-          type="button"
-          className="underline decoration-dotted underline-offset-2"
-          title="Alternar E/OU"
-          onClick={() => data.onToggle?.()}
-        >
-          {label}
-        </button>
-      ) : (
-        <span>{label}</span>
-      )}
-      {data.mode === "create" ? (
-        <Button type="button" size="icon-xs" variant="ghost" aria-label="Remover grupo" onClick={() => data.onDelete?.()}>
-          <Trash2 />
-        </Button>
-      ) : null}
+      <button
+        type="button"
+        className="underline decoration-dotted underline-offset-2 disabled:cursor-not-allowed"
+        title="Alternar E/OU"
+        disabled={data.mode === "read_only"}
+        onClick={() => data.onToggle?.()}
+      >
+        {label}
+      </button>
+      <Button type="button" size="icon-xs" variant="ghost" aria-label="Remover grupo" disabled={data.mode === "read_only"} onClick={() => data.onDelete?.()}>
+        <Trash2 />
+      </Button>
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <Handle type="source" position={Position.Right} isConnectable={false} />
     </div>

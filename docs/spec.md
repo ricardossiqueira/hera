@@ -312,8 +312,8 @@ operacional por device.
 ### Marco 5 — Automações (concluído em 24/09/2026)
 
 - `DeviceAdminService` ganhou `ListAutomationRules`, `CreateAutomationRule`,
-  `SetAutomationRuleEnabled` e `RemoveAutomationRule` (sem `Update`/`Get`
-  — mudar uma regra é remover e recriar, mesmo modelo de `Route`), e
+  `UpdateAutomationRule`, `SetAutomationRuleEnabled` e `RemoveAutomationRule`
+  (sem `Get`; a lista atende a frota de laboratório), e
   `DeviceService` ganhou `ListDeviceEvents` (espelha `ListDeviceCommands`
   pros eventos declarados no manifest).
 - Nova página `/automations`: cria regra "evento → condição → ação" com

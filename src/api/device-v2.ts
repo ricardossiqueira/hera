@@ -235,6 +235,15 @@ export async function createAutomationRuleV2(rule: AutomationRuleV2): Promise<Au
   return result.rule;
 }
 
+export interface PublishCommandResponseV2 {
+  commandId: string;
+  publishedAt: string;
+}
+export async function publishCommandV2(deviceId: string, type: string, parameters: Record<string, unknown>): Promise<PublishCommandResponseV2> {
+  if (useMocks()) return { commandId: "mock-command", publishedAt: new Date().toISOString() };
+  return requestV2("PublishCommand", { deviceId, type, parameters });
+}
+
 export function outputLabel(channel: OutputChannel) {
   return { telemetry: "Telemetria", state: "Estado", event: "Evento", "command-result": "Resultado de comando" }[channel];
 }

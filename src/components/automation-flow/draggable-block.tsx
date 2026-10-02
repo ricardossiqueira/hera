@@ -4,13 +4,14 @@ import { setBlockDragPayload, type BlockDragPayload } from "./use-block-drop-tar
 // a device or a comparação/E/OU/NÃO block. Dropping it always applies to
 // whatever's currently selected on the canvas - see
 // use-block-drop-target.ts's doc comment.
-export function DraggableBlock({ label, payload, title }: { label: string; payload: BlockDragPayload; title?: string }) {
+export function DraggableBlock({ label, payload, title, disabled = false }: { label: string; payload: BlockDragPayload; title?: string; disabled?: boolean }) {
   return (
     <div
-      draggable
-      onDragStart={(event) => setBlockDragPayload(event, payload)}
+      draggable={!disabled}
+      onDragStart={disabled ? undefined : (event) => setBlockDragPayload(event, payload)}
       title={title}
-      className="w-fit cursor-grab select-none rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-sm active:cursor-grabbing"
+      aria-disabled={disabled}
+      className={"w-fit select-none rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-sm " + (disabled ? "cursor-not-allowed opacity-50" : "cursor-grab active:cursor-grabbing")}
     >
       {label}
     </div>

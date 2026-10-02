@@ -89,8 +89,7 @@ export interface CreateRouteResponse {
 // AutomationRule mirrors iot-gateway's registry.AutomationRule (Marco 5,
 // docs/device-manifests.md): "when sourceDeviceId emits eventType, if
 // conditionJson passes, publish actionCommandType to actionDeviceId". No
-// revision history and no update RPC - editing means remove and recreate,
-// the same model Route already uses.
+// revision history: updates replace the mutable fields in place.
 export interface AutomationRule {
   id: string;
   enabled: boolean;
@@ -106,6 +105,11 @@ export interface AutomationRule {
 }
 
 export interface CreateAutomationRuleResponse {
+  rule: AutomationRule;
+  appliedAt: string;
+}
+
+export interface UpdateAutomationRuleResponse {
   rule: AutomationRule;
   appliedAt: string;
 }
@@ -374,6 +378,10 @@ export async function listAutomationRules(): Promise<AutomationRule[]> {
 
 export function createAutomationRule(rule: Omit<AutomationRule, "createdAt" | "updatedAt" | "actionSchemaValidated">): Promise<CreateAutomationRuleResponse> {
   return request(deviceAdminService + "/CreateAutomationRule", { rule });
+}
+
+export function updateAutomationRule(rule: Omit<AutomationRule, "createdAt" | "updatedAt" | "actionSchemaValidated">): Promise<UpdateAutomationRuleResponse> {
+  return request(deviceAdminService + "/UpdateAutomationRule", { rule });
 }
 
 export function setAutomationRuleEnabled(ruleId: string, enabled: boolean): Promise<SetAutomationRuleEnabledResponse> {

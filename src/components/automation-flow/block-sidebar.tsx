@@ -1,61 +1,28 @@
+import type { ActionNodeData } from "@/components/automation-flow/action-node";
+import type { ConditionFlowNode } from "@/components/automation-flow/condition-flow/layout";
+import { OPERATORS } from "@/components/automation-flow/condition-flow/types";
 import { DraggableBlock } from "@/components/automation-flow/draggable-block";
+import type { EventNodeData } from "@/components/automation-flow/event-node";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { AddableKind } from "@/components/automation-flow/condition-flow/mutations";
 import { useGateway } from "@/context/gateway-context";
 
-const CONDITION_BLOCKS: { kind: AddableKind; label: string }[] = [
-  { kind: "comparison", label: "Comparação" },
-  { kind: "and", label: "E" },
-  { kind: "or", label: "OU" },
-  { kind: "not", label: "NÃO" },
-];
+const CONDITION_BLOCKS: { kind: AddableKind; label: string }[] = [{ kind: "comparison", label: "Comparação" }, { kind: "and", label: "E" }, { kind: "or", label: "OU" }, { kind: "not", label: "NÃO" }];
 
-// BlockSidebar shows only the blocks relevant to whatever is currently
-// selected on the canvas - see rule-canvas.tsx's showDevices/
-// showConditionBlocks, computed from the selected node's role (Evento/
-// Ação accept devices; a combinator/not that still has room accepts
-// condition blocks; a comparison leaf or a full not accepts nothing).
-// Dropping a block always applies to the selected node, wherever on the
-// canvas it's released - see use-block-drop-target.ts's doc comment.
-export function BlockSidebar({ showDevices, showConditionBlocks }: { showDevices: boolean; showConditionBlocks: boolean }) {
+export function BlockSidebar({ showDevices, showConditionBlocks, readOnly = false, selectedId, eventData, actionData, selectedCondition }: {
+  showDevices: boolean; showConditionBlocks: boolean; readOnly?: boolean; selectedId: string | null;
+  eventData: EventNodeData; actionData: ActionNodeData; selectedCondition?: ConditionFlowNode;
+}) {
   const { devices } = useGateway();
   const deviceList = (devices.data ?? []).filter((device) => device.enabled && (device.topics?.event || device.topics?.command));
-
-  if (!showDevices && !showConditionBlocks) {
-    return (
-      <aside className="w-48 shrink-0 rounded-lg border border-dashed border-border p-3">
-        <p className="text-xs text-muted-foreground">Selecione um bloco no canvas para ver o que pode arrastar para ele.</p>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="w-48 shrink-0 space-y-4 overflow-y-auto rounded-lg border border-border p-3">
-      {showDevices ? (
-        <section className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase">Dispositivos</h3>
-          <div className="space-y-1.5">
-            {deviceList.map((device) => (
-              <DraggableBlock
-                key={device.id}
-                label={device.id}
-                payload={{ kind: "device", deviceId: device.id, supportsEvent: Boolean(device.topics?.event), supportsCommand: Boolean(device.topics?.command) }}
-                title="Arraste para o bloco selecionado"
-              />
-            ))}
-            {deviceList.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum dispositivo habilitado.</p> : null}
-          </div>
-        </section>
-      ) : null}
-      {showConditionBlocks ? (
-        <section className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase">Condição</h3>
-          <div className="flex flex-wrap gap-1.5">
-            {CONDITION_BLOCKS.map((block) => (
-              <DraggableBlock key={block.kind} label={block.label} payload={{ kind: block.kind }} title="Arraste para o bloco selecionado" />
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </aside>
-  );
+  const disabled = readOnly;
+  return <aside className="w-48 shrink-0 space-y-4 overflow-y-auto rounded-lg border border-border p-3">
+    {selectedId === "event" ? <section className="space-y-2"><h3 className="text-xs font-semibold uppercase text-muted-foreground">Configurar evento</h3><p className="text-xs">{eventData.deviceId || "Arraste um dispositivo abaixo"}</p>{eventData.deviceId ? <div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Eventos</p>{eventData.eventTypeOptions.map((eventType) => <DraggableBlock key={eventType} label={eventType} payload={{ kind: "event-type", eventType }} disabled={disabled} />)}{eventData.eventTypeOptions.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum evento declarado.</p> : null}</div> : null}</section> : null}
+    {selectedId === "action" ? <section className="space-y-2"><h3 className="text-xs font-semibold uppercase text-muted-foreground">Configurar ação</h3><p className="text-xs">{actionData.deviceId || "Arraste um dispositivo abaixo"}</p>{actionData.deviceId ? <div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Comandos</p>{actionData.commandOptions.map((command) => <DraggableBlock key={command.type} label={command.type} payload={{ kind: "action-command", commandType: command.type }} disabled={disabled} />)}{actionData.commandOptions.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum comando declarado.</p> : null}</div> : null}{actionData.commandType && Object.entries(actionData.parametersSchema).map(([name, field]) => <div key={name} className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">{name}</p>{field.type === "boolean" ? <div className="flex gap-1.5"><DraggableBlock label="ON" payload={{ kind: "action-boolean-parameter", parameter: name, value: true }} disabled={disabled} /><DraggableBlock label="OFF" payload={{ kind: "action-boolean-parameter", parameter: name, value: false }} disabled={disabled} /></div> : <Input value={typeof actionData.parametersValues[name] === "string" ? actionData.parametersValues[name] : ""} disabled={disabled} type={field.type === "number" || field.type === "integer" ? "number" : "text"} onChange={(event) => actionData.onParametersChange?.({ ...actionData.parametersValues, [name]: event.target.value })} />}</div>)}</section> : null}
+    {selectedCondition?.type === "comparison" ? <section className="space-y-3"><h3 className="text-xs font-semibold uppercase text-muted-foreground">Construir comparação</h3><p className="text-xs text-muted-foreground">Arraste um bloco de cada grupo para a comparação selecionada.</p><div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Condição</p>{selectedCondition.data.fieldSuggestions.map((field) => <DraggableBlock key={field} label={field} payload={{ kind: "comparison-field", field }} disabled={disabled} />)}</div><div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Operador</p><div className="flex flex-wrap gap-1.5">{OPERATORS.map((operator) => <DraggableBlock key={operator} label={operator} payload={{ kind: "comparison-operator", operator }} disabled={disabled} />)}</div></div><div className="space-y-1.5"><p className="text-xs font-semibold uppercase text-muted-foreground">Valor</p><div className="flex flex-wrap gap-1.5">{(["string", "number", "boolean"] as const).map((valueType) => <DraggableBlock key={valueType} label={valueType === "string" ? "texto" : valueType === "number" ? "número" : "booleano"} payload={{ kind: "comparison-type", valueType }} disabled={disabled} />)}</div>{selectedCondition.data.type === "boolean" ? <div className="flex gap-1.5"><DraggableBlock label="true" payload={{ kind: "comparison-value", value: "true" }} disabled={disabled} /><DraggableBlock label="false" payload={{ kind: "comparison-value", value: "false" }} disabled={disabled} /></div> : <Input value={selectedCondition.data.value} disabled={disabled} type={selectedCondition.data.type === "number" ? "number" : "text"} onChange={(event) => selectedCondition.data.onChange?.({ value: event.target.value })} placeholder="valor" />}</div><Button size="sm" variant="outline" disabled={disabled} onClick={() => selectedCondition.data.onDelete?.()}>Remover</Button></section> : null}
+    {showDevices ? <section className="space-y-1.5"><h3 className="text-xs font-semibold uppercase text-muted-foreground">Dispositivos</h3>{deviceList.map((device) => <DraggableBlock key={device.id} label={device.id} payload={{ kind: "device", deviceId: device.id, supportsEvent: Boolean(device.topics?.event), supportsCommand: Boolean(device.topics?.command) }} title={disabled ? "Somente leitura" : "Arraste para o bloco selecionado"} disabled={disabled} />)}</section> : null}
+    {showConditionBlocks ? <section className="space-y-1.5"><h3 className="text-xs font-semibold uppercase text-muted-foreground">Condição</h3><div className="flex flex-wrap gap-1.5">{CONDITION_BLOCKS.map((block) => <DraggableBlock key={block.kind} label={block.label} payload={{ kind: block.kind }} title={disabled ? "Somente leitura" : "Arraste para o bloco selecionado"} disabled={disabled} />)}</div></section> : null}
+    {!showDevices && !showConditionBlocks && !selectedCondition ? <p className="text-xs text-muted-foreground">Selecione um bloco no canvas.</p> : null}
+  </aside>;
 }

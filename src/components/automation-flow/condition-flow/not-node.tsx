@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface NotNodeData extends Record<string, unknown> {
-  mode: "create" | "detail";
+  mode: "create" | "edit" | "read_only";
   // See event-node.tsx's doc comment on isSelected.
   isSelected?: boolean;
   // Visual hint only (see combinator-node.tsx's doc comment) - not has a
@@ -18,7 +18,7 @@ export type NotFlowNode = Node<NotNodeData, "not">;
 // the sidebar onto it (see combinator-node.tsx's doc comment - the same
 // applies here: no more drag-from-handle creation).
 export function NotNode({ data }: NodeProps<NotFlowNode>) {
-  const droppable = data.mode === "create" && !data.hasChild;
+  const droppable = data.mode !== "read_only" && !data.hasChild;
   return (
     <div
       className={
@@ -28,11 +28,9 @@ export function NotNode({ data }: NodeProps<NotFlowNode>) {
       title={droppable ? "Solte um bloco de condição aqui para escolher o que negar" : undefined}
     >
       <span>NÃO</span>
-      {data.mode === "create" ? (
-        <Button type="button" size="icon-xs" variant="ghost" aria-label="Remover NÃO" onClick={() => data.onDelete?.()}>
-          <Trash2 />
-        </Button>
-      ) : null}
+      <Button type="button" size="icon-xs" variant="ghost" aria-label="Remover NÃO" disabled={data.mode === "read_only"} onClick={() => data.onDelete?.()}>
+        <Trash2 />
+      </Button>
       <Handle type="target" position={Position.Left} isConnectable={false} />
       <Handle type="source" position={Position.Right} isConnectable={false} />
     </div>

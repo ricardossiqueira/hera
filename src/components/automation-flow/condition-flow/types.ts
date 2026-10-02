@@ -26,7 +26,7 @@ export function newId(prefix: string): string {
 // condition-node.tsx, so those pages needed no changes beyond this type's
 // import path.
 export interface ConditionNodeData {
-  mode: "create" | "detail";
+  mode: "create" | "edit" | "read_only";
   conditionJson: string;
   fieldSuggestions: string[];
   onChange?: (json: string) => void;
