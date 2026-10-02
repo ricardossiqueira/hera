@@ -70,7 +70,7 @@ export function NewAutomation() {
 
   const submit = async () => {
     if (!valid || !source || !target || !selectedCommand) return;
-    const rule: AutomationRuleV2 = {
+    const rule: Omit<AutomationRuleV2, "updatedAt"> = {
       id, enabled,
       trigger: {
         sourceDeviceId, outputChannel: outputChannel as OutputChannel,
@@ -79,7 +79,6 @@ export function NewAutomation() {
         conditionJson: conditionJson || undefined,
       },
       action: { targetDeviceId, commandType, parameters: coerceParameterValues(actionSchema, actionValues) },
-      updatedAt: new Date().toISOString(),
     };
     setSubmitting(true); setError(undefined);
     try { await createAutomationRuleV2(rule); await navigate({ to: "/automations" }); }

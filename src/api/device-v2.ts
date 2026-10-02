@@ -229,7 +229,10 @@ export async function listAutomationRulesV2(): Promise<AutomationRuleV2[]> {
   const result = await requestV2<{ rules?: AutomationRuleV2[] }>("ListAutomationRules", {});
   return result.rules ?? [];
 }
-export async function createAutomationRuleV2(rule: AutomationRuleV2): Promise<AutomationRuleV2> {
+// updatedAt is server-assigned (internal/registry.CreateV2AutomationRule sets
+// it, ignoring any input) and the Go handler decodes with
+// DisallowUnknownFields - sending it back would 400 as an unknown field.
+export async function createAutomationRuleV2(rule: Omit<AutomationRuleV2, "updatedAt">): Promise<AutomationRuleV2> {
   if (useMocks()) return { ...rule, updatedAt: new Date().toISOString() };
   const result = await requestV2<{ rule: AutomationRuleV2 }>("CreateAutomationRule", { rule });
   return result.rule;
