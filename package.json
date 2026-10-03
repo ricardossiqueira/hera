@@ -1,11 +1,12 @@
 {
-  "name": "gateway-web",
+  "name": "hera",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prepare:hera": "node scripts/prepare-hera-points.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -22,6 +23,7 @@
     "react-dom": "^19.2.0",
     "shadcn": "^4.21.0",
     "sonner": "^2.0.8",
+    "three": "^0.186.1",
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
@@ -31,6 +33,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.1.1",
     "jsdom": "^27.0.1",
     "tailwindcss": "^4.3.3",

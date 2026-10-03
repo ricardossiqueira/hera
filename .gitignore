@@ -1,6 +1,7 @@
 node_modules/
 dist/
+# Original 105 MiB model; the generated point GLB in public/ is versioned.
+assets/source/hera.glb
 .env
 .env.local
 *.tsbuildinfo
-

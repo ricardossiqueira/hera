@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hera-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: hera-dist
+          path: dist
+
+      - name: Publish verified bundle to dist
+        run: |
+          dist_worktree="$RUNNER_TEMP/hera-dist-branch"
+          if git ls-remote --exit-code --heads origin dist; then
+            git fetch --no-tags origin dist
+            git worktree add --detach "$dist_worktree" origin/dist
+          else
+            git worktree add --detach "$dist_worktree" HEAD
+            git -C "$dist_worktree" checkout --orphan dist
+          fi
+
+          git -C "$dist_worktree" rm -rf --ignore-unmatch .
+          cp -a dist/. "$dist_worktree/"
+          git -C "$dist_worktree" add --all
+          if git -C "$dist_worktree" diff --cached --quiet; then
+            echo "dist already contains the verified bundle"
+            exit 0
+          fi
+          git -C "$dist_worktree" config user.name "github-actions[bot]"
+          git -C "$dist_worktree" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$dist_worktree" commit -m "deploy: ${GITHUB_SHA}"
+          git -C "$dist_worktree" push origin HEAD:dist

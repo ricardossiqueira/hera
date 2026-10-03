@@ -1,14 +1,15 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Cpu, LayoutDashboard, ListOrdered, LogOut, Settings, Workflow } from "lucide-react";
+import { Cpu, LayoutDashboard, ListOrdered, LogOut, Radar, Settings, Workflow } from "lucide-react";
 import { clearCredentials } from "@/api/auth";
 import { IssuesPopover } from "@/components/issues-popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useGateway } from "@/context/gateway-context";
+import { useHera } from "@/context/hera-context";
 
 const navItems = [
-  { to: "/", label: "Visão geral", icon: LayoutDashboard },
+  { to: "/overview", label: "Visão geral", icon: LayoutDashboard },
   { to: "/devices", label: "Dispositivos", icon: Cpu },
+  { to: "/discovery", label: "Discovery", icon: Radar },
   { to: "/automations", label: "Automações", icon: Workflow },
   { to: "/queue", label: "Fila", icon: ListOrdered },
   { to: "/settings", label: "Configurações", icon: Settings },
@@ -18,14 +19,14 @@ const navLinkClassName = "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 tex
 const navLinkActiveClassName = navLinkClassName.replace("text-muted-foreground", "bg-accent text-foreground");
 
 export function AppShell() {
-  const { status, issues } = useGateway();
+  const { status, issues } = useHera();
   const online = Boolean(status.data && !status.error);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link to="/" className="text-lg font-semibold tracking-tight">gateway-web</Link>
+          <Link to="/overview" className="text-lg font-semibold tracking-tight">Hera</Link>
           <div className="flex items-center gap-2">
             <Badge variant={online ? "success" : "destructive"} className="gap-1.5">
               <span className={"size-1.5 rounded-full " + (online ? "bg-success" : "bg-destructive")} />
@@ -39,7 +40,7 @@ export function AppShell() {
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6">
           {navItems.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} className={navLinkClassName} activeProps={{ className: navLinkActiveClassName }}>
+            <Link key={to} to={to} activeOptions={{ exact: to === "/overview" }} className={navLinkClassName} activeProps={{ className: navLinkActiveClassName }}>
               <Icon className="size-4" />
               {label}
             </Link>

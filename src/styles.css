@@ -7,7 +7,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * gateway-web is dark-only by product decision (docs/spec.md: "dark mode
+ * Hera is dark-only by product decision (docs/spec.md: "dark mode
  * simples e responsivo desde o início" - no light theme, no toggle). So the
  * tokens shadcn normally splits between `:root` (light) and `.dark` live
  * directly in `:root`, and there is no `.dark` block to keep in sync.

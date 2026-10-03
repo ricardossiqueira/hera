@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-// gateway-web is dark-only (see docs/spec.md, "dark mode simples"): no
+// Hera is dark-only (see docs/spec.md, "dark mode simples"): no
 // next-themes provider exists to detect, so the toaster's theme is fixed
 // rather than pulled from a "system" default that could pick light mode.
 const Toaster = ({ ...props }: ToasterProps) => {

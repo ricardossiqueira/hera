@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useHera } from "@/context/hera-context";
 
 function suggestedId(entry: DiscoveredDeviceV2) { return `${entry.model}-${entry.deviceUid.slice(-4)}`.replace(/[^a-z0-9_.-]/g, "-"); }
 
 export function RegisterDiscoveredDevice() {
-  const { deviceUid } = useParams({ from: "/devices/discovery/$deviceUid" });
+  const { deviceUid } = useParams({ from: "/app/discovery/$deviceUid" });
   const navigate = useNavigate();
+  const { refreshDevices } = useHera();
   const [entry, setEntry] = useState<DiscoveredDeviceV2>();
   const [deviceId, setDeviceId] = useState("");
   const [confirmManifest, setConfirmManifest] = useState(false);
@@ -24,9 +26,9 @@ export function RegisterDiscoveredDevice() {
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => { void listDiscoveryV2().then((items) => { const found = items.find((item) => item.deviceUid === deviceUid); setEntry(found); if (found) setDeviceId(suggestedId(found)); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao consultar discovery.")); }, [deviceUid]);
   const canRegister = useMemo(() => Boolean(entry && deviceId && /^[a-z0-9][a-z0-9_.-]*$/.test(deviceId) && entry.trust !== "invalid" && entry.status !== "offline" && confirmManifest), [confirmManifest, deviceId, entry]);
-  const register = async () => { if (!canRegister) return; setSubmitting(true); try { const result = await registerDiscoveredDeviceV2(deviceUid, deviceId); setResponse(result); } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao registrar device."); } finally { setSubmitting(false); } };
+  const register = async () => { if (!canRegister) return; setSubmitting(true); try { const result = await registerDiscoveredDeviceV2(deviceUid, deviceId); setResponse(result); void refreshDevices(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao registrar device."); } finally { setSubmitting(false); } };
   if (!entry && !error) return <Card><CardContent>Carregando anúncio…</CardContent></Card>;
-  if (!entry) return <Card><CardContent><p className="text-destructive">{error ?? "O anúncio expirou."}</p><Link className="mt-3 inline-block text-primary hover:underline" to="/devices/discovery">Voltar para discovery</Link></CardContent></Card>;
+  if (!entry) return <Card><CardContent><p className="text-destructive">{error ?? "O anúncio expirou."}</p><Link className="mt-3 inline-block text-primary hover:underline" to="/discovery">Voltar para discovery</Link></CardContent></Card>;
   return <>
     <PageHeading title={`Registrar ${entry.model}`} description={`UID imutável: ${entry.deviceUid}`} />
     <div className="space-y-4">

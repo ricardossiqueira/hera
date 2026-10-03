@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useGateway } from "@/context/gateway-context";
+import { useHera } from "@/context/hera-context";
 import { formatBytes, formatDate, formatNumber } from "@/lib/format";
 
 const PAGE_SIZE = 15;
@@ -158,7 +158,7 @@ function RecentEventsCard() {
 }
 
 export function Queue() {
-  const { queueSummary, refreshQueueSummary } = useGateway();
+  const { queueSummary, refreshQueueSummary } = useHera();
   const data = queueSummary.data;
 
   return (

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { Issue } from "@/context/gateway-context";
+import type { Issue } from "@/context/hera-context";
 import { formatDate } from "@/lib/format";
 
 /** Header bell: surfaces the `issues` history that used to be tracked but never rendered. */

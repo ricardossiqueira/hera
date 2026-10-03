@@ -1,8 +1,8 @@
-# Especificacao do gateway-web
+# Especificacao do Hera
 
 ## 1. Proposito
 
-`gateway-web` sera um repositorio independente, com uma interface operacional
+`Hera` sera um repositorio independente, com uma interface operacional
 para um unico `iot-gateway`. O primeiro usuario e o proprio operador tecnico.
 O produto comeca como cliente da API local existente e, em fases posteriores,
 substitui completamente a UI HTML privilegiada em `iot-gateway-admin` na
@@ -132,7 +132,8 @@ monta `Authorization` nas chamadas; ela continua sem contas, sessoes nem RBAC.
 
 | Rota | Estado inicial | Conteudo e comportamento |
 | --- | --- | --- |
-| `/` | Implementavel | Visao geral: Online/Offline, MQTT conectado, inicio/uptime, subscriptions, contadores de mensagens e outbox. Atualizar manualmente e polling a cada 10 s. |
+| `/` | Implementado | Landing publica da Hera, com previas ilustrativas e acesso ao painel. Nao consulta o gateway. |
+| `/overview` | Implementavel | Visao geral: Online/Offline, MQTT conectado, inicio/uptime, subscriptions, contadores de mensagens e outbox. Atualizar manualmente e polling a cada 10 s. Acesso protegido pelas credenciais em memoria, assim como as demais rotas operacionais. |
 | `/devices` | Implementavel | Tabela sem busca/filtros: ID, tipo, profile, habilitado e topicos. Permite selecionar varios LEDs para ligar/desligar em lote. |
 | `/devices/$deviceId` | Implementavel para LED | ID, tipo, profile, habilitado e topicos. Se `profile=led.v1`, toggle imediato `set_led`. Outras profiles terao estado explicito de ainda nao suportadas. |
 | `/devices/new` | Implementavel | Cadastro por template unico `ESP32 LED`; ID manual validado antes do envio. Mostra segredo uma vez apos sucesso. |
@@ -165,7 +166,7 @@ O cliente inicial usa JSON simples nos caminhos Connect existentes, sempre por
 | Toggle e lote LED | `DeviceService.PublishCommand` | Envia `type: "set_led"`, `parameters: {"on": boolean}`. Sucesso nao confirma execucao. |
 | Saude geral | `GatewayService.GetStatus` | Fornece MQTT, inicio, subscriptions e contadores globais. |
 
-`GetStatus` e a unica base atual para `/` e `/diagnostics`. Seus contadores
+`GetStatus` e a unica base atual para `/overview` e `/diagnostics`. Seus contadores
 nao sao historico, nao sao segmentados por device e nao permitem inspecionar
 mensagens da SQLite.
 
@@ -275,7 +276,7 @@ operacional por device.
 ### Marco 1 — Cliente operacional
 
 - Inicializar o app conforme a stack desta spec.
-- Entregar `/`, `/devices`, detalhe LED, toggle individual e lote,
+- Entregar `/overview`, `/devices`, detalhe LED, toggle individual e lote,
   `/diagnostics` e as paginas de fila/configuracoes nos estados definidos.
 - Usar somente as quatro RPCs existentes.
 - Adicionar testes unitarios, de componentes e de integracao da camada HTTP.
@@ -283,7 +284,7 @@ operacional por device.
 ### Marco 2 — Integracao administrativa e migracao gradual (concluido em 21/09/2026)
 
 - `ProvisionDevice`, `SetDeviceEnabled` e `RemoveDevice` estao integrados
-  ao `gateway-web`, com mensagens distintas para os codigos Connect.
+  ao `Hera`, com mensagens distintas para os codigos Connect.
 - Cadastro LED, segredo de exibicao unica, habilitar/desabilitar e remocao foram
   entregues e validados fim a fim no Orange Pi real.
 - Os criterios de aceite administrativos abaixo foram atendidos. A retirada da
@@ -297,7 +298,7 @@ operacional por device.
 
 ### Marco 4 — Aposentadoria de 8081 (concluido em 22/09/2026)
 
-- Operacao cotidiana migrada para `gateway-web`.
+- Operacao cotidiana migrada para `Hera`.
 - `internal/admin` (lado `iot-gateway`) perdeu templates, handlers HTTP,
   Post/Redirect/Get e a porta 8081 - virou so o motor que
   `DeviceAdminService` ja consumia (ADR-015 em `docs/decisions.md` do
@@ -343,7 +344,7 @@ operacional por device.
 ### Marco 1
 
 - Em viewport mobile e desktop, o app renderiza somente em pt-BR e dark mode.
-- Com a API acessivel, `/` mostra todos os campos de `GetStatus` e o estado
+- Com a API acessivel, `/overview` mostra todos os campos de `GetStatus` e o estado
   Online; ao falhar, mostra Offline sem afirmar que ESP32s estao offline.
 - Atualizacao manual e polling de 10 segundos funcionam sem sobrepor chamadas.
 - `/devices` e `/devices/$deviceId` refletem a configuracao retornada pela API.
@@ -374,7 +375,7 @@ operacional por device.
 
 - `iot-gateway-admin.service` nao serve mais HTML/templates; confirmado que
   a porta 8081 nao aceita mais conexoes.
-- `gateway-web` continua operando `ProvisionDevice`/`SetDeviceEnabled`/
+- `Hera` continua operando `ProvisionDevice`/`SetDeviceEnabled`/
   `RemoveDevice` sem nenhuma mudanca de cliente - a remocao foi transparente.
 - Documentacao e deploy do `iot-gateway` atualizados sem referencia ao
   painel HTML.

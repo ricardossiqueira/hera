@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Eye, EyeOff, Server } from "lucide-react";
 import { setCredentials } from "@/api/auth";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export function Login() {
           <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Server className="size-5" />
           </div>
-          <h1 className="text-lg font-semibold">gateway-web</h1>
+          <h1 className="text-lg font-semibold">Hera</h1>
           <p className="text-sm leading-6 text-muted-foreground">
             Informe a credencial HTTP Basic do gateway. Ela fica somente em
             memória nesta aba — não é salva, e você precisará informá-la de
@@ -65,6 +66,7 @@ export function Login() {
               </div>
             </div>
             <Button type="submit" className="w-full">Entrar</Button>
+            <Link to="/" className="block pt-2 text-center text-sm text-muted-foreground hover:text-foreground">Voltar ao início</Link>
           </form>
         </CardContent>
       </Card>

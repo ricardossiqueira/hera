@@ -12,6 +12,8 @@ export interface GatewayStatus {
   outboxStored: string;
   outboxDiscarded: string;
   outboxFailed: string;
+  devices?: { total?: number; byActiveState?: Record<string, number> };
+  discovery?: { total?: number; online?: number; offline?: number; byStatus?: Record<string, number> };
 }
 
 // GatewayEvent mirrors iot-gateway's ActivityEvent: the in-memory,
