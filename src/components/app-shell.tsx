@@ -1,10 +1,13 @@
-import { Link, Outlet } from "@tanstack/react-router";
-import { Cpu, LayoutDashboard, ListOrdered, LogOut, Radar, Settings, Workflow } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { ArrowUpRight, Cpu, LayoutDashboard, ListOrdered, LogOut, Menu, Radar, Settings, Workflow, X } from "lucide-react";
 import { clearCredentials } from "@/api/auth";
 import { IssuesPopover } from "@/components/issues-popover";
-import { Badge } from "@/components/ui/badge";
+import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useHera } from "@/context/hera-context";
+import "./app-shell.css";
 
 const navItems = [
   { to: "/overview", label: "Visão geral", icon: LayoutDashboard },
@@ -15,41 +18,72 @@ const navItems = [
   { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 
-const navLinkClassName = "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
-const navLinkActiveClassName = navLinkClassName.replace("text-muted-foreground", "bg-accent text-foreground");
+function AppNavigation({ onNavigate }: { onNavigate?: () => void }) {
+  return <nav aria-label="Navegação principal" className="app-navigation">
+    <p className="app-nav-caption">Workspace</p>
+    {navItems.map(({ to, label, icon: Icon }) => (
+      <Link key={to} to={to} onClick={onNavigate} activeOptions={{ exact: to === "/overview" }}
+        className="app-nav-link" activeProps={{ className: "is-active", "aria-current": "page" }}>
+        <Icon className="size-[18px]" aria-hidden="true" />{label}
+      </Link>
+    ))}
+  </nav>;
+}
 
 export function AppShell() {
   const { status, issues } = useHera();
-  const online = Boolean(status.data && !status.error);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const currentPage = navItems.find(({ to }) => pathname === to || pathname.startsWith(to + "/"));
+  const connection = status.error ? "offline" : status.data ? "online" : "pending";
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link to="/overview" className="text-lg font-semibold tracking-tight">Hera</Link>
-          <div className="flex items-center gap-2">
-            <Badge variant={online ? "success" : "destructive"} className="gap-1.5">
-              <span className={"size-1.5 rounded-full " + (online ? "bg-success" : "bg-destructive")} />
-              {online ? "Gateway online" : "Gateway offline"}
-            </Badge>
-            <IssuesPopover issues={issues} />
-            <Button variant="ghost" size="sm" onClick={() => clearCredentials()}>
-              <LogOut /> Sair
-            </Button>
-          </div>
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
+
+  return <div className="hera-app">
+    <a href="#app-content" className="app-skip-link">Pular para o conteúdo</a>
+    <aside className="app-sidebar">
+      <Link to="/overview" className="app-brand" aria-label="Hera">hera<span aria-hidden="true">.</span></Link>
+      <AppNavigation />
+      <div className="app-sidebar-footer">
+        <span className="app-nav-caption">Seu espaço conectado.</span>
+        <Link to="/" className="app-home-link">Conheça a Hera <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
+      </div>
+    </aside>
+    <div className="app-workspace">
+      <header className="app-topbar">
+        <div className="flex min-w-0 items-center gap-3">
+          <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="app-menu-trigger" aria-label="Abrir navegação"><Menu /></Button>
+            </DialogTrigger>
+            <DialogContent className="app-mobile-menu" showCloseButton={false} aria-describedby={undefined}>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-2xl">hera.</DialogTitle>
+                <DialogClose asChild><Button variant="ghost" size="icon" aria-label="Fechar navegação"><X /></Button></DialogClose>
+              </div>
+              <AppNavigation onNavigate={() => setMenuOpen(false)} />
+              <Link to="/" onClick={() => setMenuOpen(false)} className="app-home-link">Conheça a Hera <ArrowUpRight className="size-4" /></Link>
+            </DialogContent>
+          </Dialog>
+          <span className="app-breadcrumb-root">Workspace <span aria-hidden="true">/</span></span>
+          <span className="truncate text-sm">{currentPage?.label ?? "Hera"}</span>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} activeOptions={{ exact: to === "/overview" }} className={navLinkClassName} activeProps={{ className: navLinkActiveClassName }}>
-              <Icon className="size-4" />
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <div className="app-toolbar">
+          <span className="app-connection" role="status">
+            <StatusIndicator state={connection}>{connection === "online" ? "Gateway online" : connection === "offline" ? "Gateway indisponível" : "Verificando gateway"}</StatusIndicator>
+          </span>
+          <IssuesPopover issues={issues} />
+          <Button variant="ghost" size="sm" className="app-logout" onClick={() => clearCredentials()} aria-label="Sair"><LogOut /><span>Sair</span></Button>
+        </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <Outlet />
-      </main>
+      <main id="app-content" tabIndex={-1} className="app-content"><Outlet /></main>
+      <footer className="app-footer"><span>Hera · seu espaço conectado</span><span>Dados do seu gateway</span></footer>
     </div>
-  );
+  </div>;
 }

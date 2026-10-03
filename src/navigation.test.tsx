@@ -18,6 +18,7 @@ const runtimeStatus: GatewayStatus = {
 beforeEach(() => {
   setCredentials("operator", "test-password");
   vi.stubEnv("VITE_DEVICE_V2_MOCKS", "true"); vi.stubGlobal("scrollTo", vi.fn());
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.mocked(getStatus).mockResolvedValue({ ...runtimeStatus,
     devices: { total: 3, byActiveState: { active: 3 } },
     discovery: { total: 3, online: 2, offline: 1, byStatus: { ready_to_register: 2, offline: 1 } },
@@ -103,6 +104,39 @@ it("opens a device from a non-link cell and reuses telemetry in details", async 
   expect(await screen.findByText("12,5")).toBeInTheDocument();
 });
 
+it("keeps the connection pending until the first status response", async () => {
+  let finish!: (value: GatewayStatus) => void;
+  vi.mocked(getStatus).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  await open("/overview");
+  expect(screen.getByText("Verificando gateway")).toBeInTheDocument();
+  expect(screen.queryByText("Gateway indisponível")).not.toBeInTheDocument();
+  await act(async () => { finish(runtimeStatus); });
+  expect(await screen.findByText("Gateway online")).toBeInTheDocument();
+});
+
+it("retains the last counters but marks API unavailable after a refresh failure", async () => {
+  await open("/overview");
+  await screen.findByText("Gateway online");
+  vi.mocked(getStatus).mockRejectedValue(new Error("connection lost"));
+  fireEvent.click(screen.getByRole("button", { name: "Atualizar agora" }));
+  expect(await screen.findByText("Gateway indisponível")).toBeInTheDocument();
+  expect(screen.getByText("API").parentElement).toHaveTextContent("Indisponível");
+  expect(screen.getByText("Registrados").parentElement).toHaveTextContent("3");
+  expect(screen.getByText(/MQTT e contadores abaixo refletem a última consulta/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Atualizar agora" })).toBeEnabled();
+});
+
+it("closes mobile navigation on selection and marks the device section active on a deep link", async () => {
+  const testRouter = await open("/overview");
+  fireEvent.click(screen.getByRole("button", { name: "Abrir navegação" }));
+  const menu = await screen.findByRole("dialog");
+  fireEvent.click(within(menu).getByRole("link", { name: "Dispositivos" }));
+  await waitFor(() => expect(testRouter.state.location.pathname).toBe("/devices"));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await act(async () => { await testRouter.navigate({ to: "/devices/$deviceId", params: { deviceId: "orangepi-monitor" } }); });
+  expect(within(screen.getByRole("navigation")).getByRole("link", { name: "Dispositivos" })).toHaveAttribute("aria-current", "page");
+});
+
 it("opens discovery inspection from a row", async () => {
   const testRouter = await open("/discovery");
   const uid = await screen.findByRole("link", { name: "esp32c3-42a9" });
@@ -111,6 +145,46 @@ it("opens discovery inspection from a row", async () => {
   fireEvent.click(screen.getByText("192.168.15.43:8080"));
   await waitFor(() => expect(testRouter.state.location.pathname).toBe("/discovery/esp32c3-42a9"));
   expect(await screen.findByText("Registro")).toBeInTheDocument();
+});
+
+it.each([
+  { status: "rejected" as const, manifest: undefined },
+  { status: "rejected" as const, manifest: deviceApi.deviceV2Fixtures.ledManifest },
+  { status: "ready_to_register" as const, manifest: undefined },
+])("renders incomplete or rejected discovery safely ($status, $manifest)", async ({ status, manifest }) => {
+  const diagnostic = 'Get "http://192.168.15.211:8080/v1/device-info": dial tcp 192.168.15.211:8080: connect: no route to host';
+  vi.spyOn(deviceApi, "listDiscoveryV2").mockResolvedValue([{
+    deviceUid: "esp32c3-a46ae1bbc784", address: "192.168.15.211", port: 8080,
+    model: "esp32c3-led", firmwareVersion: "0.1.0", manifest,
+    manifestSha256: "6268eec56109b74487ab7da63af72b04a37c91dea23e2e6cf73408912ee37389",
+    pairingRequired: false, status, trust: "unknown", lastSeenAt: "2026-10-03T13:05:05Z", diagnostic,
+  }]);
+  const register = vi.spyOn(deviceApi, "registerDiscoveredDeviceV2");
+  await open("/discovery/esp32c3-a46ae1bbc784");
+  expect(await screen.findByText(diagnostic)).toBeInTheDocument();
+  expect(screen.getByText(/Registro indisponível/)).toBeInTheDocument();
+  if (!manifest) expect(screen.getByText("Manifest indisponível")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox")).toBeDisabled();
+  const button = screen.getByRole("button", { name: "Registrar device" });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(register).not.toHaveBeenCalled();
+});
+
+it.each(["esp32c3-42a9", "cyd-7781"])("still allows reviewed manifests through the registration flow for %s", async (uid) => {
+  await open(`/discovery/${uid}`);
+  const checkbox = await screen.findByRole("checkbox");
+  expect(checkbox).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Registrar device" })).toBeDisabled();
+  fireEvent.click(checkbox);
+  expect(screen.getByRole("button", { name: "Registrar device" })).toBeEnabled();
+});
+
+it("shows expired discovery instead of loading forever when the UID is missing", async () => {
+  await open("/discovery/missing");
+  expect(await screen.findByText("O anúncio expirou.")).toBeInTheDocument();
+  expect(screen.queryByText("Carregando anúncio…")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Voltar para discovery" })).toHaveAttribute("href", "/discovery");
 });
 
 it("uses GetStatus breakdowns even when the device list contains different counts", async () => {

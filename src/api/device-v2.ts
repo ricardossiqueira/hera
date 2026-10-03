@@ -42,9 +42,10 @@ export interface DiscoveredDeviceV2 {
   port: number;
   model: string;
   firmwareVersion: string;
-  manifest: DeviceManifestV2;
+  // Discovery can report an announcement before inspection succeeds.
+  manifest?: DeviceManifestV2;
   manifestSha256: string;
-  identityFingerprint: string;
+  identityFingerprint?: string;
   trust: TrustStatus;
   status: DiscoveryStatus;
   pairingRequired: boolean;
@@ -200,6 +201,7 @@ export async function registerDiscoveredDeviceV2(deviceUid: string, deviceId: st
   if (useMocks()) {
     const entry = fixtureDiscovery.find((item) => item.deviceUid === deviceUid);
     if (!entry) throw new Error("Device descoberto não encontrado.");
+    if (!entry.manifest || !entry.identityFingerprint) throw new Error("Inspeção do device indisponível.");
     const device: RegisteredDeviceV2 = { deviceId, deviceUid, firmwareVersion: entry.firmwareVersion, manifest: entry.manifest, manifestHash: entry.manifestSha256, manifestRevision: entry.manifestSha256.slice(0, 8), desiredState: "active", activeState: "active", identityFingerprint: entry.identityFingerprint, updatedAt: new Date().toISOString() };
     return { device, steps: [
       { id: "pairing", label: "Pairing e prova de identidade", status: "complete" },

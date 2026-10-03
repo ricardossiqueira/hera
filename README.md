@@ -10,7 +10,14 @@ ilustrativas e navegação por recursos. Ela não consulta o gateway. O botão
 “Abrir Hera” leva a `/overview`; todas as rotas operacionais continuam
 protegidas pelas credenciais em memória. Links diretos de dispositivos,
 Discovery e automações mantêm os endereços existentes e pedem login quando
-necessário. A interface interna permanece independente dos estilos da landing.
+necessário. A interface interna compartilha a paleta neutra da landing, com
+navegação lateral no desktop e menu acessível no celular. A visão geral separa
+cadastro, telemetria, descoberta e operação do gateway, preservando os últimos
+dados quando uma consulta falha e identificando a indisponibilidade da API.
+
+`PageHeading`, `PageSection`, `MetricCard` e `StatusIndicator` compõem a base
+reutilizável das páginas internas. As métricas do Orange Pi usam os mesmos cards
+da visão geral; progresso e estados operacionais mantêm sua semântica.
 
 O primeiro corte está implementado com React, TypeScript, Vite, TanStack Router
 e Tailwind CSS:

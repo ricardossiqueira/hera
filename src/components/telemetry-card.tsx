@@ -14,11 +14,11 @@ export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = fa
   const isOrangePi = dashboard && entry?.device.manifest.manifest_id === "orangepi-monitor";
 
   return <Card>
-    <CardHeader><CardTitle className="flex items-center gap-2"><Gauge className="size-4" />
+    <CardHeader className="gap-2"><CardTitle className="flex flex-wrap items-center gap-2 break-all text-lg"><Gauge className="size-4 shrink-0" aria-hidden="true" />
       {isOrangePi ? <span>Orange Pi ·</span> : null}
       {showDeviceLink ? <Link to="/devices/$deviceId" params={{ deviceId }} className="hover:underline">{deviceId}</Link> : "Telemetria"}
     </CardTitle>{isOrangePi ? <p className="text-sm text-muted-foreground">Monitoramento do sistema pelo Theia</p> : null}</CardHeader>
-    <CardContent className="space-y-3">
+    <CardContent className="space-y-5">
       {telemetry.loading && !entry ? <Skeleton className="h-20" aria-label="Carregando telemetria" /> : null}
       {error ? <p role="alert" className="text-sm text-destructive">Não foi possível atualizar a telemetria: {error}</p> : null}
       {snapshot?.available ? <>

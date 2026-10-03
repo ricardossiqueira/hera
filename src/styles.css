@@ -11,25 +11,23 @@
  * simples e responsivo desde o início" - no light theme, no toggle). So the
  * tokens shadcn normally splits between `:root` (light) and `.dark` live
  * directly in `:root`, and there is no `.dark` block to keep in sync.
- * Neutrals stay close to shadcn's Nova grayscale; primary/ring/destructive
- * are tuned to the cyan/rose accents the app already used before this pass,
- * and --success is an addition shadcn doesn't ship (used for online/enabled
- * states and success toasts).
+ * Neutrals follow the landing's charcoal and warm white palette. Semantic
+ * success/destructive colors remain reserved for operational states.
  */
 :root {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --background: #090909;
+  --foreground: #ededeb;
+  --card: #111111;
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: #161616;
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.789 0.154 211.53);
-  --primary-foreground: oklch(0.18 0.04 230);
+  --primary: #ededeb;
+  --primary-foreground: #171717;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted-foreground: #a1a1a1;
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 18);
@@ -38,7 +36,7 @@
   --success-foreground: oklch(0.97 0.03 162);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.789 0.154 211.53 / 0.6);
+  --ring: #d4d4d4;
   --radius: 0.75rem;
 }
 
