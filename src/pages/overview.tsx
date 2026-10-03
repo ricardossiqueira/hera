@@ -5,7 +5,7 @@ import { MetricCard } from "@/components/metric-card";
 import { PageHeading } from "@/components/page-heading";
 import { PageSection } from "@/components/page-section";
 import { StatusIndicator } from "@/components/status-indicator";
-import { TelemetryCard } from "@/components/telemetry-card";
+import { TelemetryCard, isTheiaDevice } from "@/components/telemetry-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,7 @@ export function Overview() {
   const { status, refreshStatus, telemetry, refreshTelemetry } = useHera();
   const [refreshing, setRefreshing] = useState(false);
   const data = status.data;
+  const otherTelemetry = telemetry.data?.filter(({ device }) => !isTheiaDevice(device)) ?? [];
   const devices = data?.devices;
   const discovery = data?.discovery;
   const count = (state: string) => devices ? devices.byActiveState?.[state] ?? 0 : undefined;
@@ -64,18 +65,9 @@ export function Overview() {
         </div>
       </PageSection>
 
-      <PageSection title="Saúde do sistema" description="Telemetria dos seus dispositivos, direto da fonte.">
-        {telemetry.loading && !telemetry.data ? <Skeleton className="h-64" aria-label="Carregando telemetria" /> : null}
-        {telemetry.error ? <p role="alert" className="text-sm text-destructive">Não foi possível atualizar a telemetria: {telemetry.error}</p> : null}
-        {!telemetry.error && telemetry.data?.length === 0 ? <Card><CardContent className="py-6 text-center">
-          <Activity className="mx-auto mb-4 size-6 text-muted-foreground" aria-hidden="true" />
-          <p className="text-base">Aguardando os primeiros sinais</p>
-          <p className="mt-2 text-sm text-muted-foreground">Nenhum dispositivo registrado publica telemetria.</p>
-          <Button asChild variant="outline" className="mt-5"><Link to="/devices">Ver dispositivos <ArrowUpRight /></Link></Button>
-        </CardContent></Card> : null}
-        {telemetry.data?.map(({ device }) => <TelemetryCard key={device.deviceId} deviceId={device.deviceId} showDeviceLink dashboard />)}
-      </PageSection>
-
+      {otherTelemetry.length > 0 ? <PageSection title="Telemetria dos dispositivos" description="Sinais dos demais dispositivos do seu workspace.">
+        {otherTelemetry.map(({ device }) => <TelemetryCard key={device.deviceId} deviceId={device.deviceId} showDeviceLink dashboard />)}
+      </PageSection> : null}
       <PageSection title="Discovery" description="Presença e descoberta na sua rede local."
         action={<Button variant="ghost" asChild><Link to="/discovery">Ver Discovery <ArrowUpRight /></Link></Button>}>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -86,11 +78,11 @@ export function Overview() {
 
       <PageSection title="Gateway" description="Conectividade e processamento de mensagens."
         action={<Button variant="ghost" asChild><Link to="/queue">Ver fila <ArrowUpRight /></Link></Button>}>
-        {status.loading && !data ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-40" />)}</div> : null}
+        {status.loading && !data ? <div className="grid gap-4 sm:grid-cols-2 @min-[900px]:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-40" />)}</div> : null}
         {status.error && !data ? <Card><CardContent><p className="text-base text-destructive">Não foi possível carregar o status.</p><p className="mt-2 text-sm text-muted-foreground">Uma nova tentativa será feita automaticamente.</p></CardContent></Card> : null}
         {data ? <>
           {status.error ? <p className="text-sm text-muted-foreground">MQTT e contadores abaixo refletem a última consulta bem-sucedida.</p> : null}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 @min-[900px]:grid-cols-4">
             <MetricCard icon={Activity} label="API" value={status.error ? "Indisponível" : "Online"}
               note={<StatusIndicator state={status.error ? "offline" : "online"}>{status.error ? "Falha na última consulta" : "Respondendo às consultas"}</StatusIndicator>} />
             <MetricCard icon={Radio} label="MQTT" value={data.mqttConnected ? "Conectado" : "Desconectado"}

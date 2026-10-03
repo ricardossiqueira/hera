@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { HeraMark } from "@/components/hera-mark";
 import {
   Activity,
   ArrowDown,
@@ -67,22 +68,6 @@ const features = [
   },
 ] as const;
 type PreviewKind = (typeof features)[number]["id"];
-
-function HeraMark({ small = false }: { small?: boolean }) {
-  return (
-    <span
-      className={`hera-mark${small ? " hera-mark-small" : ""}`}
-      aria-hidden="true"
-    >
-      <span />
-      <span />
-      <span />
-      <span />
-      <span />
-      <span />
-    </span>
-  );
-}
 
 function Brand() {
   return (

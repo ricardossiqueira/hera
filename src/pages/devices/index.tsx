@@ -1,25 +1,51 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { RefreshCw } from "lucide-react";
+import { ChevronRight, Cpu, Radar, RefreshCw } from "lucide-react";
 import { type RegisteredDeviceV2 } from "@/api/device-v2";
 import { useHera } from "@/context/hera-context";
-import { LinkedTableRow } from "@/components/linked-table-row";
 import { PageHeading } from "@/components/page-heading";
-import { Badge } from "@/components/ui/badge";
+import { ResourceEmpty, ResourceField, ResourceIdentity, ResourceList, ResourceListItem, ResourceNote, SummaryStrip, matchesSearch } from "@/components/resource-list";
+import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const stateVariant = (state: RegisteredDeviceV2["activeState"]) => state === "active" ? "success" : state === "failed" ? "destructive" : "outline";
+const stateLabels: Record<RegisteredDeviceV2["activeState"], string> = {
+  active: "Ativo", offline: "Offline", pending: "Pendente", failed: "Falha",
+};
 
 export function Devices() {
-  const { devices: resource, refreshDevices: refresh } = useHera();
-  const { data: devices, error, loading } = resource;
+  const { devices: { data: devices, error, loading }, refreshDevices } = useHera();
+  const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const visible = devices?.filter((device) => matchesSearch(query, device.deviceId, device.deviceUid, device.manifest.display_name, device.manifest.manifest_id, stateLabels[device.activeState])) ?? [];
+  async function refresh() {
+    setRefreshing(true);
+    try { await refreshDevices(); } finally { setRefreshing(false); }
+  }
+
   return <>
-    <PageHeading title="Dispositivos" description="Dispositivos registrados e suas interfaces disponíveis." action={<Button variant="outline" disabled={loading} onClick={() => void refresh()}><RefreshCw /> Atualizar</Button>} />
-    {loading && !devices ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-14" />)}</div> : null}
-    {error ? <Card><CardContent><p className="text-destructive">{error}</p></CardContent></Card> : null}
-    {devices?.length === 0 ? <Card><CardContent><p className="text-sm text-muted-foreground">Nenhum dispositivo registrado. Abra Discovery no menu para encontrar dispositivos na rede.</p></CardContent></Card> : null}
-    {devices?.length ? <Card className="overflow-hidden p-0"><Table><TableHeader><TableRow><TableHead>Dispositivo</TableHead><TableHead>UID</TableHead><TableHead>Manifest / revisão</TableHead><TableHead>Interface</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader><TableBody>{devices.map((device) => <LinkedTableRow key={device.deviceId}><TableCell><Link data-row-link className="font-medium text-primary hover:underline" to="/devices/$deviceId" params={{ deviceId: device.deviceId }}>{device.deviceId}</Link><span className="block text-xs text-muted-foreground">{device.firmwareVersion}</span></TableCell><TableCell className="font-mono text-xs">{device.deviceUid}</TableCell><TableCell>{device.manifest.manifest_id}<span className="block font-mono text-xs text-muted-foreground">{device.manifestRevision}</span></TableCell><TableCell className="text-sm text-muted-foreground">{device.manifest.mqtt.publish.length} publica · {device.manifest.mqtt.subscribe.flatMap((item) => item.commands).length} comandos</TableCell><TableCell><Badge variant={stateVariant(device.activeState)}>{device.activeState}</Badge></TableCell></LinkedTableRow>)}</TableBody></Table></Card> : null}
+    <PageHeading eyebrow="Meu gateway" title="Dispositivos" description="Cada dispositivo, sua interface. Conheça tudo o que faz parte do seu workspace."
+      action={<div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={loading || refreshing} onClick={() => void refresh()}><RefreshCw className={refreshing ? "motion-safe:animate-spin" : ""} /> Atualizar</Button>
+        <Button asChild><Link to="/discovery"><Radar /> Abrir Discovery</Link></Button>
+      </div>} />
+    <SummaryStrip items={[
+      { label: "Registrados", value: devices?.length, note: "Dispositivos no gateway" },
+      { label: "Ativos", value: devices?.filter((device) => device.activeState === "active").length, note: "Ativação concluída" },
+      { label: "Precisam de atenção", value: devices?.filter((device) => device.activeState === "pending" || device.activeState === "failed").length, note: "Pendentes ou com falha" },
+    ]} />
+    <ResourceList title="Dispositivos registrados" searchLabel="Buscar dispositivos" query={query} onQueryChange={setQuery} total={devices?.length} visible={visible.length} loading={loading} error={error}
+      empty={<ResourceEmpty icon={Cpu} title="Seu workspace começa aqui" action={<Button variant="outline" asChild><Link to="/discovery">Encontrar dispositivos</Link></Button>}>Nenhum dispositivo registrado. Abra Discovery para encontrar dispositivos na rede.</ResourceEmpty>}>
+      {visible.map((device) => <ResourceListItem key={device.deviceId}>
+        <Link to="/devices/$deviceId" params={{ deviceId: device.deviceId }} aria-label={device.deviceId}>
+          <ResourceIdentity icon={Cpu} name={device.deviceId}><span>{device.manifest.display_name}</span><span>{device.deviceUid}</span></ResourceIdentity>
+          <span className="resource-details">
+            <ResourceField label="Manifest">{device.manifest.manifest_id}<small>Revisão {device.manifestRevision}</small></ResourceField>
+            <ResourceField label="Interface">{device.manifest.mqtt.publish.length} publica · {device.manifest.mqtt.subscribe.flatMap((item) => item.commands).length} comandos<small>Firmware {device.firmwareVersion}</small></ResourceField>
+          </span>
+          <span className="resource-state"><StatusIndicator state={device.activeState === "active" ? "online" : device.activeState === "failed" ? "offline" : "pending"}>{stateLabels[device.activeState] ?? device.activeState}</StatusIndicator><ChevronRight aria-hidden="true" /></span>
+        </Link>
+      </ResourceListItem>)}
+    </ResourceList>
+    <ResourceNote icon={Cpu} title="Uma interface para cada dispositivo">Abra um dispositivo para explorar sua telemetria e os comandos declarados. O estado acima representa a ativação no gateway; a presença na rede aparece em Discovery.</ResourceNote>
   </>;
 }

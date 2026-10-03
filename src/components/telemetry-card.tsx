@@ -5,18 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHera } from "@/context/hera-context";
 import { formatDate, formatNumber } from "@/lib/format";
+import type { RegisteredDeviceV2 } from "@/api/device-v2";
 
-export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = false }: { deviceId: string; showDeviceLink?: boolean; dashboard?: boolean }) {
+export function isTheiaDevice(device: RegisteredDeviceV2) {
+  return device.manifest.manifest_id === "orangepi-monitor";
+}
+
+export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = false, compact = false }: { deviceId: string; showDeviceLink?: boolean; dashboard?: boolean; compact?: boolean }) {
   const { telemetry } = useHera();
   const entry = telemetry.data?.find((item) => item.device.deviceId === deviceId);
   const snapshot = entry?.snapshot;
   const error = telemetry.error ?? entry?.error;
-  const isOrangePi = dashboard && entry?.device.manifest.manifest_id === "orangepi-monitor";
+  const isOrangePi = dashboard && entry && isTheiaDevice(entry.device);
 
-  return <Card>
+  return <Card className={compact ? "telemetry-compact" : undefined}>
     <CardHeader className="gap-2"><CardTitle className="flex flex-wrap items-center gap-2 break-all text-lg"><Gauge className="size-4 shrink-0" aria-hidden="true" />
       {isOrangePi ? <span>Orange Pi ·</span> : null}
-      {showDeviceLink ? <Link to="/devices/$deviceId" params={{ deviceId }} className="hover:underline">{deviceId}</Link> : "Telemetria"}
+      {showDeviceLink ? <Link to="/devices/$deviceId" params={{ deviceId }} aria-label={compact ? `Ver dispositivo do monitor Theia: ${deviceId}` : undefined} className="hover:underline">{deviceId}</Link> : "Telemetria"}
     </CardTitle>{isOrangePi ? <p className="text-sm text-muted-foreground">Monitoramento do sistema pelo Theia</p> : null}</CardHeader>
     <CardContent className="space-y-5">
       {telemetry.loading && !entry ? <Skeleton className="h-20" aria-label="Carregando telemetria" /> : null}

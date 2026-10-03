@@ -3,6 +3,8 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { ArrowUpRight, Cpu, LayoutDashboard, ListOrdered, LogOut, Menu, Radar, Settings, Workflow, X } from "lucide-react";
 import { clearCredentials } from "@/api/auth";
 import { IssuesPopover } from "@/components/issues-popover";
+import { HeraMark } from "@/components/hera-mark";
+import { TheiaMonitor } from "@/components/theia-monitor";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -34,6 +36,9 @@ export function AppShell() {
   const { status, issues } = useHera();
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [theiaExpanded, setTheiaExpanded] = useState(true);
+  const isOverview = pathname === "/overview";
+  const showTheia = isOverview || theiaExpanded;
   const currentPage = navItems.find(({ to }) => pathname === to || pathname.startsWith(to + "/"));
   const connection = status.error ? "offline" : status.data ? "online" : "pending";
 
@@ -48,7 +53,7 @@ export function AppShell() {
   return <div className="hera-app">
     <a href="#app-content" className="app-skip-link">Pular para o conteúdo</a>
     <aside className="app-sidebar">
-      <Link to="/overview" className="app-brand" aria-label="Hera">hera<span aria-hidden="true">.</span></Link>
+      <Link to="/overview" className="app-brand" aria-label="Hera"><HeraMark />hera.</Link>
       <AppNavigation />
       <div className="app-sidebar-footer">
         <span className="app-nav-caption">Seu espaço conectado.</span>
@@ -64,7 +69,7 @@ export function AppShell() {
             </DialogTrigger>
             <DialogContent className="app-mobile-menu" showCloseButton={false} aria-describedby={undefined}>
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-2xl">hera.</DialogTitle>
+                <DialogTitle className="flex items-center gap-3 text-2xl"><HeraMark />hera.</DialogTitle>
                 <DialogClose asChild><Button variant="ghost" size="icon" aria-label="Fechar navegação"><X /></Button></DialogClose>
               </div>
               <AppNavigation onNavigate={() => setMenuOpen(false)} />
@@ -82,7 +87,10 @@ export function AppShell() {
           <Button variant="ghost" size="sm" className="app-logout" onClick={() => clearCredentials()} aria-label="Sair"><LogOut /><span>Sair</span></Button>
         </div>
       </header>
-      <main id="app-content" tabIndex={-1} className="app-content"><Outlet /></main>
+      <div className={`app-body${showTheia ? " theia-expanded" : ""}`}>
+        <main id="app-content" tabIndex={-1} className="app-content"><Outlet /></main>
+        <TheiaMonitor expanded={showTheia} collapsible={!isOverview} onToggle={() => setTheiaExpanded((current) => !current)} />
+      </div>
       <footer className="app-footer"><span>Hera · seu espaço conectado</span><span>Dados do seu gateway</span></footer>
     </div>
   </div>;

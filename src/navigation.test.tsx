@@ -97,6 +97,45 @@ it("shows telemetry on overview and keeps Discovery separate in navigation", asy
   expect(screen.getByRole("link", { name: "Hera" })).toBeInTheDocument();
 });
 
+it("keeps Theia open on overview and remembers its collapsed state on other pages without extra polling", async () => {
+  const telemetry = vi.spyOn(deviceApi, "getDeviceTelemetryV2");
+  const testRouter = await open("/overview");
+  const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
+  expect(await within(monitor).findByText("12,5%")).toBeVisible();
+  expect(within(screen.getByRole("main")).queryByText("CPU")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Recolher monitor Theia" })).not.toBeInTheDocument();
+  const requests = telemetry.mock.calls.length;
+  await act(async () => { await testRouter.navigate({ to: "/devices" }); });
+  fireEvent.click(screen.getByRole("button", { name: "Recolher monitor Theia" }));
+  expect(screen.getByRole("button", { name: "Expandir monitor Theia" })).toHaveAttribute("aria-expanded", "false");
+  expect(within(monitor).getByText("12,5%")).not.toBeVisible();
+  await act(async () => { await testRouter.navigate({ to: "/settings" }); });
+  expect(screen.getByRole("button", { name: "Expandir monitor Theia" })).toBeInTheDocument();
+  await act(async () => { await testRouter.navigate({ to: "/overview" }); });
+  expect(within(monitor).getByText("12,5%")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Recolher monitor Theia" })).not.toBeInTheDocument();
+  await act(async () => { await testRouter.navigate({ to: "/devices" }); });
+  fireEvent.click(screen.getByRole("button", { name: "Expandir monitor Theia" }));
+  expect(within(monitor).getByText("12,5%")).toBeVisible();
+  expect(telemetry).toHaveBeenCalledTimes(requests);
+});
+
+it("shows an unavailable Theia monitor instead of fabricated metrics", async () => {
+  vi.spyOn(deviceApi, "listDevicesV2").mockResolvedValue([]);
+  await open("/overview");
+  const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
+  expect(await within(monitor).findByText(/Nenhum monitor Theia disponível/)).toBeInTheDocument();
+  expect(within(monitor).queryByText("CPU")).not.toBeInTheDocument();
+});
+
+it("shows per-device telemetry failures in the shared Theia monitor", async () => {
+  vi.spyOn(deviceApi, "getDeviceTelemetryV2").mockRejectedValue(new Error("telemetry unavailable"));
+  await open("/devices");
+  const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
+  expect(await within(monitor).findByRole("alert")).toHaveTextContent("telemetry unavailable");
+  expect(within(monitor).queryByText("12,5%")).not.toBeInTheDocument();
+});
+
 it("opens a device from a non-link cell and reuses telemetry in details", async () => {
   const testRouter = await open("/devices");
   fireEvent.click(await screen.findByText("orangepi-001"));
@@ -226,6 +265,49 @@ it("opens an automation from its row with read-only details", async () => {
   await waitFor(() => expect(testRouter.state.location.pathname).toBe("/automations/orangepi-to-cyd"));
   expect(await screen.findByTestId("canvas")).toHaveTextContent("telemetry read_only");
   expect(screen.getByRole("heading", { name: "Parâmetros do comando" })).toBeInTheDocument();
+});
+
+it.each([
+  { path: "/devices", label: "Buscar dispositivos", query: "orangepi-001", result: "orangepi-monitor", other: "led-sala" },
+  { path: "/discovery", label: "Buscar por dispositivo, UID ou endereço", query: "192.168.15.43", result: "esp32c3-42a9", other: "cyd-7781" },
+  { path: "/automations", label: "Buscar por automação, dispositivo ou comando", query: "render_system_status", result: "orangepi-to-cyd", other: undefined },
+])("searches real data and restores results on $path", async ({ path, label, query, result, other }) => {
+  await open(path);
+  await screen.findByRole("link", { name: result });
+  const search = screen.getByRole("searchbox", { name: label });
+  fireEvent.change(search, { target: { value: query } });
+  expect(screen.getByRole("link", { name: result })).toBeInTheDocument();
+  if (other) expect(screen.queryByRole("link", { name: other })).not.toBeInTheDocument();
+  fireEvent.change(search, { target: { value: "no-such-item" } });
+  expect(screen.getByText("Nenhum resultado para esta busca")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Limpar busca" }));
+  expect(search).toHaveValue("");
+  expect(screen.getByRole("link", { name: result })).toBeInTheDocument();
+  if (other) expect(screen.getByRole("link", { name: other })).toBeInTheDocument();
+});
+
+it("keeps rejected announcements without manifests visible and searchable in Discovery", async () => {
+  vi.spyOn(deviceApi, "listDiscoveryV2").mockResolvedValue([{
+    deviceUid: "esp32-unreachable", address: "192.168.15.211", port: 8080, model: "esp32c3-led", firmwareVersion: "0.1.0",
+    manifestSha256: "6268eec56109b74487ab7da63af72b04a37c91dea23e2e6cf73408912ee37389", status: "rejected", trust: "unknown",
+    pairingRequired: false, lastSeenAt: "2026-10-03T13:05:05Z", diagnostic: "no route to host",
+  }]);
+  await open("/discovery");
+  expect(await screen.findByText("Inspeção indisponível")).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "rejeitado" } });
+  fireEvent.click(screen.getByRole("link", { name: "esp32-unreachable" }));
+  expect(await screen.findByText("no route to host")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Registrar device" })).toBeDisabled();
+});
+
+it("retains searchable automation rows when a refresh fails", async () => {
+  const list = vi.spyOn(deviceApi, "listAutomationRulesV2");
+  await open("/automations");
+  await screen.findByRole("link", { name: "orangepi-to-cyd" });
+  list.mockRejectedValue(new Error("Gateway indisponível"));
+  fireEvent.click(screen.getByRole("button", { name: "Atualizar" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Exibindo a última consulta disponível.");
+  expect(screen.getByRole("link", { name: "orangepi-to-cyd" })).toBeInTheDocument();
 });
 
 it.each([

@@ -1,0 +1,30 @@
+.theia-monitor { position: sticky; top: 76px; max-height: calc(100dvh - 76px); overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #0d0d0d; scrollbar-width: thin; }
+.theia-monitor-heading { position: sticky; top: 0; z-index: 1; background: #0d0d0d; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 20px 16px; }
+.theia-monitor-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 500; }
+.theia-monitor-heading h2 svg { width: 18px; height: 18px; color: #a8ad9b; }
+.theia-monitor-heading p { margin-top: 8px; color: var(--muted-foreground); font-size: 12px; line-height: 1.7; }
+.theia-monitor:not(.is-expanded) .theia-monitor-heading { padding: 16px 8px; }
+.theia-monitor:not(.is-expanded) .theia-toggle { flex-direction: column; height: auto; gap: 12px; padding: 12px 8px; }
+.theia-monitor:not(.is-expanded) .theia-toggle span { writing-mode: vertical-rl; }
+.theia-message { margin: 0 20px 24px; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.hera-app .telemetry-compact[data-slot="card"] { border-radius: 0; box-shadow: none; background: transparent; border-top: 1px solid var(--border); --card-spacing: 20px; }
+.telemetry-compact [data-slot="card-title"] { font-size: 14px; }
+.telemetry-compact [data-slot="card-header"] > p { font-size: 12px; }
+.telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.hera-app .telemetry-compact [data-slot="card"] { --card-spacing: 12px; border-radius: 0; border-bottom: 1px solid var(--border); box-shadow: none; background: transparent; }
+.telemetry-compact [data-slot="card"] [data-slot="card-content"] { padding-inline: 0; gap: 8px; }
+.telemetry-compact dd { margin-top: 8px; font-size: 24px; }
+.telemetry-compact [data-slot="card"] p { font-size: 12px; line-height: 1.6; }
+@media (max-width: 1199px) {
+  .theia-monitor { grid-row: 1; z-index: 15; width: 100%; max-height: 38dvh; border-left: 0; }
+  .theia-monitor-heading { padding: 12px 20px; }
+  .theia-monitor-heading p { margin-top: 3px; }
+  .theia-monitor:not(.is-expanded) .theia-monitor-heading { padding: 6px 16px; }
+  .theia-monitor:not(.is-expanded) .theia-toggle { flex-direction: row; padding: 6px 8px; }
+  .theia-monitor:not(.is-expanded) .theia-toggle span { writing-mode: initial; }
+  .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+}
+@media (max-width: 639px) {
+  .theia-monitor { top: 68px; }
+  .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

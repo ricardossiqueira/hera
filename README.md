@@ -19,6 +19,20 @@ dados quando uma consulta falha e identificando a indisponibilidade da API.
 reutilizável das páginas internas. As métricas do Orange Pi usam os mesmos cards
 da visão geral; progresso e estados operacionais mantêm sua semântica.
 
+As listas de dispositivos, Discovery e automações seguem as prévias da landing:
+contadores sem cards, linhas leves e, nas automações, a sequência evento →
+condição → ação. `ResourceList`, `SummaryStrip` e seus elementos de linha
+compartilham busca local, estados vazios, carregamento e falhas com dados anteriores.
+Cada item é um link nativo para seus detalhes; os dados de identidade, interface
+e estado continuam disponíveis. `HeraMark` é usado tanto na landing quanto no shell.
+
+O monitor Theia fica na lateral direita do shell, fixo durante a rolagem e
+alimentado pela mesma telemetria compartilhada, sem consultas adicionais.
+Na visão geral permanece aberto; nas demais páginas pode ser recolhido,
+preservando a escolha durante a navegação. Em telas menores, aparece como
+uma faixa fixa abaixo do cabeçalho, com rolagem própria. A telemetria dos
+demais dispositivos continua na área central da visão geral.
+
 O primeiro corte está implementado com React, TypeScript, Vite, TanStack Router
 e Tailwind CSS:
 

@@ -1,12 +1,11 @@
-.hera-app { min-height: 100dvh; background: var(--background); -webkit-font-smoothing: antialiased; }
-.app-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; width: 232px; flex-direction: column; border-right: 1px solid var(--border); background: #0c0c0c; padding: 32px 18px 24px; }
-.app-brand { display: inline-flex; align-self: flex-start; margin: 0 14px 54px; font-size: 36px; font-weight: 550; letter-spacing: -2px; line-height: 1; }
-.app-brand span { color: var(--muted-foreground); }
-.app-nav-caption { display: block; margin: 0 14px 14px; color: var(--muted-foreground); font-size: 12px; letter-spacing: .06em; }
+.hera-app { min-height: 100dvh; background: #0d0d0d; -webkit-font-smoothing: antialiased; }
+.app-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; width: 232px; flex-direction: column; overflow-y: auto; border-right: 1px solid var(--border); background: #0d0d0d; padding: 28px 18px 24px; }
+.app-brand { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; margin: 0 14px 46px; font-size: 30px; font-weight: 550; letter-spacing: -1.2px; line-height: 1; }
+.app-nav-caption { display: block; margin: 0 14px 14px; color: var(--muted-foreground); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .app-navigation { display: flex; flex-direction: column; gap: 5px; }
-.app-nav-link { display: flex; min-height: 46px; align-items: center; gap: 12px; border: 1px solid transparent; border-radius: 8px; padding: 10px 14px; color: var(--muted-foreground); font-size: 15px; transition: background .15s, color .15s; }
+.app-nav-link { display: flex; min-height: 46px; align-items: center; gap: 12px; border: 1px solid transparent; border-radius: 3px; padding: 10px 14px; color: var(--muted-foreground); font-size: 15px; transition: background .15s, color .15s; }
 .app-nav-link:hover { background: #ffffff06; color: var(--foreground); }
-.app-nav-link.is-active { border-color: var(--border); background: #ffffff09; color: var(--foreground); }
+.app-nav-link.is-active { background: #ffffff08; color: var(--foreground); }
 .app-nav-link.is-active::after { content: ""; width: 4px; height: 4px; margin-left: auto; border-radius: 50%; background: currentColor; }
 .app-sidebar-footer { margin-top: auto; padding-top: 32px; }
 .app-home-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; font-size: 14px; color: var(--muted-foreground); }
@@ -16,7 +15,9 @@
 .app-breadcrumb-root { display: flex; gap: 16px; color: var(--muted-foreground); font-size: 14px; }
 .app-toolbar { display: flex; align-items: center; gap: 12px; }
 .app-connection { margin-right: 12px; color: var(--muted-foreground); }
-.app-content { width: 100%; max-width: 1440px; min-width: 0; margin: 0 auto; padding: 48px 40px 64px; outline: none; }
+.app-body { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: start; flex: 1; min-width: 0; }
+.app-body.theia-expanded { grid-template-columns: minmax(0, 1fr) 320px; }
+.app-content { container-type: inline-size; width: 100%; max-width: 1440px; min-width: 0; margin: 0 auto; padding: 48px 40px 64px; outline: none; }
 .app-content > * { min-width: 0; }
 .app-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: auto; border-top: 1px solid var(--border); padding: 22px 40px; color: var(--muted-foreground); font-size: 12px; }
 .app-menu-trigger { display: none; }
@@ -25,7 +26,7 @@
 .app-skip-link { position: fixed; top: 12px; left: 12px; z-index: 60; transform: translateY(-150%); border-radius: 6px; padding: 12px 16px; background: var(--foreground); color: var(--background); }
 .app-skip-link:focus { transform: translateY(0); }
 .hera-app a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
-.hera-app [data-slot="button"] { min-height: 40px; }
+.hera-app [data-slot="button"] { min-height: 40px; border-radius: 4px; }
 .hera-app [data-slot="card"] { --card-spacing: 24px; }
 .hera-app [data-slot="card"] [data-slot="card"] { --card-spacing: 20px; }
 @media (max-width: 1279px) {
@@ -37,6 +38,9 @@
   .app-sidebar { display: none; }
   .app-workspace { margin-left: 0; }
   .app-menu-trigger { display: inline-flex; }
+}
+@media (max-width: 1199px) {
+  .app-body, .app-body.theia-expanded { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 639px) {
   .app-content { padding: 32px 20px 48px; }
