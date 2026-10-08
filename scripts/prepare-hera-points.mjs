@@ -1,25 +1,18 @@
 // Offline conversion: the browser downloads only the sampled point cloud.
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { Box3, BufferAttribute, MathUtils, Mesh, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MeshSurfaceSampler } from "three/addons/math/MeshSurfaceSampler.js";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import {
+  mergeGeometries,
+  mergeVertices,
+} from "three/addons/utils/BufferGeometryUtils.js";
 
-const source = new URL("../assets/source/hera.glb", import.meta.url);
+const source = new URL("../assets/source/female_bust.obj", import.meta.url);
 const destination = new URL(
-  "../public/models/hera-points.glb",
+  "../public/models/female-bust-points.glb",
   import.meta.url,
-);
-const input = await readFile(source);
-if (input.readUInt32LE(0) !== 0x46546c67 || input.readUInt32LE(4) !== 2) {
-  throw new Error("Expected a glTF 2.0 binary file.");
-}
-const jsonLength = input.readUInt32LE(12);
-const document = JSON.parse(input.subarray(20, 20 + jsonLength).toString());
-const binOffset = 20 + jsonLength;
-const binary = input.subarray(
-  binOffset + 8,
-  binOffset + 8 + input.readUInt32LE(binOffset),
 );
 
 function encodeGlb(json, data) {
@@ -40,25 +33,46 @@ function encodeGlb(json, data) {
   return output;
 }
 
-// Textures aren't needed for surface sampling. Skip image decoding in Node.
-for (const mesh of document.meshes) {
-  for (const primitive of mesh.primitives) delete primitive.material;
+// Load the source model into a scene graph of meshes. Wavefront OBJ is parsed
+// directly; a binary glTF has its textures/materials stripped first so Node
+// never tries to decode images during surface sampling.
+async function loadSource(url) {
+  if (url.pathname.toLowerCase().endsWith(".obj")) {
+    return new OBJLoader().parse(await readFile(url, "utf8"));
+  }
+  const input = await readFile(url);
+  if (input.readUInt32LE(0) !== 0x46546c67 || input.readUInt32LE(4) !== 2) {
+    throw new Error("Expected a glTF 2.0 binary file.");
+  }
+  const jsonLength = input.readUInt32LE(12);
+  const document = JSON.parse(input.subarray(20, 20 + jsonLength).toString());
+  const binOffset = 20 + jsonLength;
+  const binary = input.subarray(
+    binOffset + 8,
+    binOffset + 8 + input.readUInt32LE(binOffset),
+  );
+  for (const mesh of document.meshes) {
+    for (const primitive of mesh.primitives) delete primitive.material;
+  }
+  delete document.materials;
+  delete document.textures;
+  delete document.images;
+  delete document.samplers;
+  const geometryOnly = encodeGlb(document, binary);
+  const gltf = await new GLTFLoader().parseAsync(
+    geometryOnly.buffer.slice(
+      geometryOnly.byteOffset,
+      geometryOnly.byteOffset + geometryOnly.byteLength,
+    ),
+    "",
+  );
+  return gltf.scene;
 }
-delete document.materials;
-delete document.textures;
-delete document.images;
-delete document.samplers;
-const geometryOnly = encodeGlb(document, binary);
-const gltf = await new GLTFLoader().parseAsync(
-  geometryOnly.buffer.slice(
-    geometryOnly.byteOffset,
-    geometryOnly.byteOffset + geometryOnly.byteLength,
-  ),
-  "",
-);
-gltf.scene.updateMatrixWorld(true);
+
+const scene = await loadSource(source);
+scene.updateMatrixWorld(true);
 const geometries = [];
-gltf.scene.traverse((object) => {
+scene.traverse((object) => {
   if (!object.isMesh) return;
   const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
   for (const attribute of Object.keys(geometry.attributes)) {
@@ -67,21 +81,25 @@ gltf.scene.traverse((object) => {
   }
   geometries.push(geometry);
 });
-const merged = mergeGeometries(geometries);
-if (!merged) throw new Error("Could not merge the Hera surface.");
+let merged = mergeGeometries(geometries);
+if (!merged) throw new Error("Could not merge the source surface.");
+// OBJ exports are unindexed with duplicated vertices; weld them so the depth
+// occluder and the sampler run on a compact, shared-vertex surface.
+if (!merged.index) merged = mergeVertices(merged);
+if (!merged.getAttribute("normal")) merged.computeVertexNormals();
 merged.computeBoundingBox();
 const bounds = merged.boundingBox;
 const center = bounds.getCenter(new Vector3());
 const scale = 6 / bounds.getSize(new Vector3()).y;
 merged.translate(-center.x, -center.y, -center.z).scale(scale, scale, scale);
 
-// Concentrate surface samples around the upper third shown by the camera.
-// Keep a sparse lower silhouette instead of introducing a hard crop boundary.
+// Concentrate surface samples on the head and face shown by the camera, with
+// the lower bust and shoulders kept sparser. Normalized bounds span y=-3..3.
 const surfacePositions = merged.getAttribute("position");
 const density = new Float32Array(surfacePositions.count);
 for (let i = 0; i < density.length; i++) {
   density[i] =
-    0.06 + 0.94 * MathUtils.smoothstep(surfacePositions.getY(i), 0.5, 1.5);
+    0.2 + 0.8 * MathUtils.smoothstep(surfacePositions.getY(i), -1.5, 1.0);
 }
 merged.setAttribute("density", new BufferAttribute(density, 1));
 // Reproducible samples independent of the mesh's vertex density.
@@ -148,8 +166,9 @@ for (let i = count - 1; i > 0; i--) {
     [normals[a], normals[b]] = [normals[b], normals[a]];
   }
 }
-// The upper surface is exported only as an invisible depth occluder. Exact
-// triangles keep points on the back of the head from shining through the face.
+// The surface is exported only as an invisible depth occluder. Exact triangles
+// keep points on the back of the head from shining through the face. Only the
+// very bottom of the bust is dropped.
 const sourceIndices = merged.getIndex();
 const remap = new Map();
 const occlusionPositions = [];
@@ -161,7 +180,7 @@ for (let i = 0; i < sourceIndices.count; i += 3) {
     sourceIndices.getX(i + 1),
     sourceIndices.getX(i + 2),
   ];
-  if (triangle.every((index) => surfacePositions.getY(index) < 0.25)) continue;
+  if (triangle.every((index) => surfacePositions.getY(index) < -1.5)) continue;
   for (const index of triangle) {
     if (!remap.has(index)) {
       remap.set(index, occlusionPositions.length / 3);
@@ -187,15 +206,14 @@ const output = encodeGlb(
       version: "2.0",
       generator: "Hera surface point sampler",
       extras: {
-        ...document.asset.extras,
-        modification: `Surface sampled into ${count.toLocaleString("en-US")} points, concentrated on the upper third; upper surface retained for depth occlusion only; original textures removed.`,
+        modification: `Surface sampled into ${count.toLocaleString("en-US")} points, concentrated on the head; surface retained for depth occlusion only; original textures removed.`,
       },
     },
     scene: 0,
     scenes: [{ nodes: [0, 1] }],
     nodes: [
-      { mesh: 0, name: "Hera points" },
-      { mesh: 1, name: "Hera depth surface" },
+      { mesh: 0, name: "Model points" },
+      { mesh: 1, name: "Model depth surface" },
     ],
     meshes: [
       { primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, mode: 0 }] },
@@ -260,14 +278,15 @@ await mkdir(new URL("../public/models/", import.meta.url), { recursive: true });
 await writeFile(destination, output);
 for (const geometry of geometries) geometry.dispose();
 merged.dispose();
-gltf.scene.traverse((object) => {
+scene.traverse((object) => {
   if (!object.isMesh) return;
   object.geometry.dispose();
   for (const material of Array.isArray(object.material)
     ? object.material
     : [object.material])
-    material.dispose();
+    material?.dispose();
 });
+const sourceSize = (await stat(source)).size;
 console.log(
-  `Hera: ${count.toLocaleString("en-US")} points, ${(output.length / 1024).toFixed(0)} KiB (original ${(input.length / 1024 / 1024).toFixed(1)} MiB).`,
+  `Model: ${count.toLocaleString("en-US")} points, ${(output.length / 1024).toFixed(0)} KiB (original ${(sourceSize / 1024 / 1024).toFixed(1)} MiB).`,
 );

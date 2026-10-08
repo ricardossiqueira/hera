@@ -89,7 +89,10 @@ it("shows telemetry on overview and keeps Discovery separate in navigation", asy
   await open("/overview");
   expect(await screen.findByText("CPU")).toBeInTheDocument();
   expect(screen.getByText("12,5%")).toBeInTheDocument();
-  expect(screen.getByText("Monitoramento do sistema pelo Theia")).toBeInTheDocument();
+  const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
+  expect(within(monitor).getByRole("link", { name: "Ver dispositivo do monitor Theia: orangepi-monitor" })).toHaveTextContent("Theia");
+  expect(within(monitor).queryByText("Orange Pi ·")).not.toBeInTheDocument();
+  expect(within(monitor).queryByText("Monitoramento do sistema pelo Theia")).not.toBeInTheDocument();
   expect(screen.getByText("Registrados").parentElement).toHaveTextContent("3");
   expect(screen.getByText("Ativos no gateway").parentElement).toHaveTextContent("3");
   const nav = screen.getByRole("navigation");
@@ -126,6 +129,35 @@ it("shows an unavailable Theia monitor instead of fabricated metrics", async () 
   const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
   expect(await within(monitor).findByText(/Nenhum monitor Theia disponível/)).toBeInTheDocument();
   expect(within(monitor).queryByText("CPU")).not.toBeInTheDocument();
+});
+
+it("collapses and expands the compact Theia strip on mobile, including overview", async () => {
+  let compact = false;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+    matches: query === "(max-width: 1199px)" && compact,
+    addEventListener: (_event: string, listener: () => void) => { if (query === "(max-width: 1199px)") listeners.add(listener); },
+    removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+  })));
+  await open("/discovery");
+  const monitor = screen.getByRole("complementary", { name: "Monitor Theia" });
+  expect(await within(monitor).findByText("12,5%")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Recolher monitor Theia" }));
+  expect(within(monitor).getByText("12,5%")).not.toBeVisible();
+  act(() => { compact = true; listeners.forEach((notify) => notify()); });
+  expect(within(monitor).getByText("12,5%")).not.toBeVisible();
+  expect(screen.getByRole("button", { name: "Expandir monitor Theia" })).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(screen.getByRole("button", { name: "Expandir monitor Theia" }));
+  expect(within(monitor).getAllByRole("definition")).toHaveLength(6);
+  for (const value of within(monitor).getAllByRole("definition")) expect(value).toBeVisible();
+  const overview = screen.getByRole("navigation", { name: "Navegação principal" }).querySelector('a[href="/overview"]') as HTMLElement;
+  fireEvent.click(overview);
+  expect(await screen.findByRole("button", { name: "Recolher monitor Theia" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Recolher monitor Theia" }));
+  expect(within(monitor).getByText("12,5%")).not.toBeVisible();
+  act(() => { compact = false; listeners.forEach((notify) => notify()); });
+  expect(within(monitor).getByText("12,5%")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Recolher monitor Theia" })).not.toBeInTheDocument();
 });
 
 it("shows per-device telemetry failures in the shared Theia monitor", async () => {

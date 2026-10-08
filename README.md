@@ -30,7 +30,10 @@ O monitor Theia fica na lateral direita do shell, fixo durante a rolagem e
 alimentado pela mesma telemetria compartilhada, sem consultas adicionais.
 Na visão geral permanece aberto; nas demais páginas pode ser recolhido,
 preservando a escolha durante a navegação. Em telas menores, aparece como
-uma faixa fixa abaixo do cabeçalho, com rolagem própria. A telemetria dos
+uma faixa compacta abaixo do cabeçalho, com as seis métricas em três colunas
+no celular e seis em telas intermediárias, sem rolagem interna. A faixa pode
+ser recolhida em qualquer página no mobile.
+A telemetria dos
 demais dispositivos continua na área central da visão geral.
 
 O primeiro corte está implementado com React, TypeScript, Vite, TanStack Router,
@@ -129,9 +132,9 @@ translúcido com blur; seções entram suavemente uma única vez e as prévias
 transicionam na seleção. A preferência por movimento reduzido desativa
 rotação e animações de entrada, mantendo o conteúdo visível.
 
-O original foi preservado em `assets/source/hera.glb` (ignorado pelo Git).
-O arquivo servido é `public/models/hera-points.glb`, de aproximadamente 8,2 MB,
-incluindo os pontos e a superfície de oclusão, sem as texturas do original.
+O modelo usado nesta versão está em `assets/source/female_bust.obj`.
+O arquivo servido é `public/models/female-bust-points.glb`, de aproximadamente 10 MB,
+incluindo os pontos e a superfície de oclusão, sem texturas.
 Para regenerar após substituir o modelo:
 
 ```powershell

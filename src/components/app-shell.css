@@ -17,6 +17,7 @@
 .app-connection { margin-right: 12px; color: var(--muted-foreground); }
 .app-body { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: start; flex: 1; min-width: 0; }
 .app-body.theia-expanded { grid-template-columns: minmax(0, 1fr) 320px; }
+.app-page { display: flex; flex-direction: column; min-width: 0; align-self: stretch; }
 .app-content { container-type: inline-size; width: 100%; max-width: 1440px; min-width: 0; margin: 0 auto; padding: 48px 40px 64px; outline: none; }
 .app-content > * { min-width: 0; }
 .app-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: auto; border-top: 1px solid var(--border); padding: 22px 40px; color: var(--muted-foreground); font-size: 12px; }
@@ -40,7 +41,7 @@
   .app-menu-trigger { display: inline-flex; }
 }
 @media (max-width: 1199px) {
-  .app-body, .app-body.theia-expanded { grid-template-columns: minmax(0, 1fr); }
+  .app-body, .app-body.theia-expanded { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
 }
 @media (max-width: 639px) {
   .app-content { padding: 32px 20px 48px; }

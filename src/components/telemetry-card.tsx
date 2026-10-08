@@ -11,7 +11,7 @@ export function isTheiaDevice(device: RegisteredDeviceV2) {
   return device.manifest.manifest_id === "orangepi-monitor";
 }
 
-export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = false, compact = false }: { deviceId: string; showDeviceLink?: boolean; dashboard?: boolean; compact?: boolean }) {
+export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = false, compact = false, showHeader = true }: { deviceId: string; showDeviceLink?: boolean; dashboard?: boolean; compact?: boolean; showHeader?: boolean }) {
   const { telemetry } = useHera();
   const entry = telemetry.data?.find((item) => item.device.deviceId === deviceId);
   const snapshot = entry?.snapshot;
@@ -19,10 +19,10 @@ export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = fa
   const isOrangePi = dashboard && entry && isTheiaDevice(entry.device);
 
   return <Card className={compact ? "telemetry-compact" : undefined}>
-    <CardHeader className="gap-2"><CardTitle className="flex flex-wrap items-center gap-2 break-all text-lg"><Gauge className="size-4 shrink-0" aria-hidden="true" />
-      {isOrangePi ? <span>Orange Pi ·</span> : null}
+    {showHeader ? <CardHeader className="gap-2"><CardTitle className="flex flex-wrap items-center gap-2 break-all text-lg"><Gauge className="size-4 shrink-0" aria-hidden="true" />
+      {isOrangePi && !compact ? <span>Orange Pi ·</span> : null}
       {showDeviceLink ? <Link to="/devices/$deviceId" params={{ deviceId }} aria-label={compact ? `Ver dispositivo do monitor Theia: ${deviceId}` : undefined} className="hover:underline">{deviceId}</Link> : "Telemetria"}
-    </CardTitle>{isOrangePi ? <p className="text-sm text-muted-foreground">Monitoramento do sistema pelo Theia</p> : null}</CardHeader>
+    </CardTitle>{isOrangePi && !compact ? <p className="text-sm text-muted-foreground">Monitoramento do sistema pelo Theia</p> : null}</CardHeader> : null}
     <CardContent className="space-y-5">
       {telemetry.loading && !entry ? <Skeleton className="h-20" aria-label="Carregando telemetria" /> : null}
       {error ? <p role="alert" className="text-sm text-destructive">Não foi possível atualizar a telemetria: {error}</p> : null}
@@ -34,7 +34,7 @@ export function TelemetryCard({ deviceId, showDeviceLink = false, dashboard = fa
             <dd className="mt-0.5 break-words font-medium">{typeof value === "number" ? formatNumber(value) : typeof value === "object" ? JSON.stringify(value) : String(value)}</dd>
           </div>)}
         </dl>}
-        <p className="text-xs text-muted-foreground">Último valor recebido em {formatDate(snapshot.timestamp)}.</p>
+        <p className="telemetry-timestamp text-xs text-muted-foreground">Último valor recebido em {formatDate(snapshot.timestamp)}.</p>
       </> : null}
       {!telemetry.loading && !error && !snapshot?.available ? <p className="text-sm text-muted-foreground">Sem dados de telemetria desde a última inicialização do gateway.</p> : null}
     </CardContent>

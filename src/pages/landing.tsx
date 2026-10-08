@@ -1,5 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import {
+  MotionConfig,
+  motion,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion";
 import { HeraMark } from "@/components/hera-mark";
 import {
   Activity,
@@ -32,6 +38,66 @@ import {
 import "./landing.css";
 
 const LandingParticles = lazy(() => import("@/components/landing-particles"));
+
+// Shared motion language for the whole page: one easing, one spring, small
+// offsets. Reveals fade+rise into view; groups stagger their children.
+const EASE = [0.2, 0.7, 0.2, 1] as const;
+const lift = { type: "spring", stiffness: 320, damping: 26 } as const;
+
+const item: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+};
+const group: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.04 } },
+};
+
+const revealTags = { div: motion.div, section: motion.section } as const;
+
+/**
+ * Reveal-on-scroll (or on-mount) wrapper. Honors reduced motion by rendering
+ * its content statically, so nothing animates when the user opts out.
+ */
+function Reveal({
+  as = "div",
+  stagger = false,
+  mount = false,
+  className,
+  id,
+  children,
+}: {
+  as?: keyof typeof revealTags;
+  stagger?: boolean;
+  mount?: boolean;
+  className?: string;
+  id?: string;
+  children: ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  if (reduce) {
+    const Tag = as;
+    return (
+      <Tag className={className} id={id}>
+        {children}
+      </Tag>
+    );
+  }
+  const M = revealTags[as];
+  return (
+    <M
+      className={className}
+      id={id}
+      variants={stagger ? group : item}
+      initial="hidden"
+      {...(mount
+        ? { animate: "visible" }
+        : { whileInView: "visible", viewport: { once: true, amount: 0.15 } })}
+    >
+      {children}
+    </M>
+  );
+}
 
 const features = [
   {
@@ -462,52 +528,14 @@ const ecosystem = [
 ];
 
 export function Landing() {
-  const root = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeFeature, setActiveFeature] = useState<PreviewKind>("overview");
   const feature = features.find(({ id }) => id === activeFeature)!;
   const closeMenu = () => setMenuOpen(false);
 
-  useEffect(() => {
-    const host = root.current;
-    if (!host || typeof IntersectionObserver === "undefined" || !host.animate) return;
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const targets = host.querySelectorAll<HTMLElement>(".landing-section-heading, .landing-hero-preview, .landing-ecosystem-grid, .landing-feature-layout, .landing-steps article, .landing-principles > div, .landing-faq-list, .landing-final");
-    const revealed = new WeakSet<Element>();
-    const animations = new Set<Animation>();
-    let observer: IntersectionObserver | undefined;
-    const syncMotion = () => {
-      observer?.disconnect();
-      animations.forEach((animation) => animation.cancel());
-      animations.clear();
-      if (motion.matches) return;
-      observer = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          observer?.unobserve(entry.target);
-          revealed.add(entry.target);
-          // Content is visible by default, including without animation support.
-          const animation = entry.target.animate([
-            { opacity: 0, transform: "translateY(18px)" },
-            { opacity: 1, transform: "translateY(0)" },
-          ], { duration: 650, easing: "cubic-bezier(.2,.7,.2,1)" });
-          animations.add(animation);
-          animation.onfinish = () => animations.delete(animation);
-        }
-      }, { threshold: 0.08 });
-      targets.forEach((target) => { if (!revealed.has(target)) observer!.observe(target); });
-    };
-    syncMotion();
-    motion.addEventListener("change", syncMotion);
-    return () => {
-      observer?.disconnect();
-      animations.forEach((animation) => animation.cancel());
-      motion.removeEventListener("change", syncMotion);
-    };
-  }, []);
-
   return (
-    <div ref={root} className="hera-landing" id="inicio">
+    <MotionConfig reducedMotion="user">
+    <div className="hera-landing" id="inicio">
       <Suspense fallback={null}>
         <LandingParticles />
       </Suspense>
@@ -559,22 +587,22 @@ export function Landing() {
 
       <main id="conteudo">
         <section className="landing-hero landing-container" id="visao-geral">
-          <div className="landing-hero-copy">
-            <span className="landing-eyebrow">
+          <Reveal className="landing-hero-copy" stagger mount>
+            <motion.span className="landing-eyebrow" variants={item}>
               <span /> SEU ECOSSISTEMA, EM SINTONIA
-            </span>
-            <h1>
+            </motion.span>
+            <motion.h1 variants={item}>
               Seus dispositivos.
               <br />
               <span>Uma só visão.</span>
-            </h1>
-            <p>
+            </motion.h1>
+            <motion.p variants={item}>
               Conecte os pontos da sua operação.
               <br className="desktop-break" /> Monitore dispositivos, acompanhe
               sinais e crie
               <br className="desktop-break" /> automações em um único lugar.
-            </p>
-            <div className="landing-actions">
+            </motion.p>
+            <motion.div className="landing-actions" variants={item}>
               <Link className="landing-button" to="/overview">
                 Conhecer a Hera <ArrowUpRight size={15} />
               </Link>
@@ -584,14 +612,14 @@ export function Landing() {
               >
                 Explorar recursos <ArrowDown size={14} />
               </a>
-            </div>
-            <span className="landing-hero-note">
+            </motion.div>
+            <motion.span className="landing-hero-note" variants={item}>
               Do primeiro sinal à próxima ação.
-            </span>
-          </div>
-          <div className="landing-hero-preview">
+            </motion.span>
+          </Reveal>
+          <Reveal className="landing-hero-preview" mount>
             <ProductPreview />
-          </div>
+          </Reveal>
           <div className="landing-preview-caption">
             <span>MENOS RUÍDO. MAIS CONTEXTO.</span>
             <span>
@@ -604,7 +632,7 @@ export function Landing() {
           className="landing-ecosystem landing-container"
           aria-labelledby="ecosystem-heading"
         >
-          <div className="landing-section-heading">
+          <Reveal className="landing-section-heading">
             <span className="landing-eyebrow">CONEXÕES QUE FAZEM SENTIDO</span>
             <h2 id="ecosystem-heading">
               Diferentes dispositivos.
@@ -616,15 +644,20 @@ export function Landing() {
               <br className="desktop-break" /> Seu ecossistema conectado pelo
               gateway.
             </p>
-          </div>
-          <div className="landing-ecosystem-grid">
+          </Reveal>
+          <Reveal className="landing-ecosystem-grid" stagger>
             {ecosystem.map(({ label, icon: Icon }) => (
-              <div key={label}>
+              <motion.div
+                key={label}
+                variants={item}
+                whileHover={{ y: -4 }}
+                transition={lift}
+              >
                 <Icon size={26} strokeWidth={1.3} />
                 <span>{label}</span>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </Reveal>
           <p className="landing-ecosystem-note">
             As capacidades disponíveis dependem de cada dispositivo conectado.
           </p>
@@ -632,7 +665,7 @@ export function Landing() {
 
         <section className="landing-features" id="recursos">
           <div className="landing-container">
-            <div className="landing-section-heading">
+            <Reveal className="landing-section-heading">
               <span className="landing-eyebrow">DA VISÃO GERAL AO DETALHE</span>
               <h2>
                 Entenda o que acontece.
@@ -644,14 +677,14 @@ export function Landing() {
                 <br className="desktop-break" /> Cada parte da sua operação no
                 seu contexto.
               </p>
-            </div>
-            <div className="landing-feature-layout">
+            </Reveal>
+            <Reveal className="landing-feature-layout">
               <div
                 className="landing-feature-selectors"
                 aria-label="Recursos da Hera"
               >
                 {features.map(({ id, title, subtitle, icon: Icon }, index) => (
-                  <button
+                  <motion.button
                     key={id}
                     id={`feature-${id}`}
                     className={
@@ -662,6 +695,9 @@ export function Landing() {
                     aria-pressed={activeFeature === id}
                     aria-controls="feature-preview"
                     onClick={() => setActiveFeature(id)}
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.99 }}
+                    transition={lift}
                   >
                     <span className="landing-feature-number">0{index + 1}</span>
                     <span>
@@ -669,7 +705,7 @@ export function Landing() {
                       <small>{subtitle}</small>
                     </span>
                     <Icon size={16} />
-                  </button>
+                  </motion.button>
                 ))}
                 <span className="landing-feature-hint">
                   Explore cada perspectiva <ArrowRight size={13} />
@@ -680,7 +716,14 @@ export function Landing() {
                 role="region"
                 aria-labelledby={`feature-${activeFeature}`}
               >
-                <ProductPreview key={activeFeature} kind={activeFeature} compact />
+                <motion.div
+                  key={activeFeature}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.32, ease: EASE }}
+                >
+                  <ProductPreview kind={activeFeature} compact />
+                </motion.div>
                 <div className="landing-feature-description" aria-live="polite">
                   <p>{feature.description}</p>
                   <Link
@@ -691,20 +734,20 @@ export function Landing() {
                   </Link>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         <section className="landing-how landing-container" id="como-funciona">
-          <div className="landing-section-heading">
+          <Reveal className="landing-section-heading">
             <span className="landing-eyebrow">UM COMEÇO SIMPLES</span>
             <h2>
               Da conexão à ação.
               <br />
               <span>Sem perder o fio.</span>
             </h2>
-          </div>
-          <div className="landing-steps">
+          </Reveal>
+          <Reveal className="landing-steps" stagger>
             {[
               {
                 title: "Acesse seu gateway",
@@ -722,23 +765,28 @@ export function Landing() {
                 icon: Workflow,
               },
             ].map(({ title, text, icon: Icon }, i) => (
-              <article key={title}>
+              <motion.article
+                key={title}
+                variants={item}
+                whileHover={{ y: -4 }}
+                transition={lift}
+              >
                 <div className="landing-step-top">
                   <span>0{i + 1}</span>
                   <Icon size={23} strokeWidth={1.3} />
                 </div>
                 <h3>{title}</h3>
                 <p>{text}</p>
-              </article>
+              </motion.article>
             ))}
-          </div>
+          </Reveal>
         </section>
 
         <section
           className="landing-principles landing-container"
           aria-labelledby="principles-heading"
         >
-          <div>
+          <Reveal>
             <span className="landing-eyebrow">FEITA PARA A SUA OPERAÇÃO</span>
             <h2 id="principles-heading">
               Tudo conectado.
@@ -750,8 +798,8 @@ export function Landing() {
               <br className="desktop-break" /> acontecendo do outro lado da
               tela.
             </p>
-          </div>
-          <div className="landing-principle-list">
+          </Reveal>
+          <Reveal className="landing-principle-list" stagger>
             {[
               {
                 title: "Perto dos seus dispositivos",
@@ -769,27 +817,27 @@ export function Landing() {
                 icon: Terminal,
               },
             ].map(({ title, text, icon: Icon }) => (
-              <article key={title}>
+              <motion.article key={title} variants={item}>
                 <Icon size={20} strokeWidth={1.4} />
                 <div>
                   <h3>{title}</h3>
                   <p>{text}</p>
                 </div>
-              </article>
+              </motion.article>
             ))}
-          </div>
+          </Reveal>
         </section>
 
         <section className="landing-faq landing-container" id="perguntas">
-          <div className="landing-section-heading">
+          <Reveal className="landing-section-heading">
             <span className="landing-eyebrow">ANTES DE COMEÇAR</span>
             <h2>
               Algumas respostas.
               <br />
               <span>Mais clareza.</span>
             </h2>
-          </div>
-          <div className="landing-faq-list">
+          </Reveal>
+          <Reveal className="landing-faq-list" stagger>
             {[
               {
                 question: "O que é a Hera?",
@@ -812,18 +860,18 @@ export function Landing() {
                   "Não. As prévias são ilustrativas e mostram a proposta visual da Hera. Os dados reais são consultados no painel, depois de entrar com as credenciais do seu gateway.",
               },
             ].map(({ question, answer }) => (
-              <details key={question}>
+              <motion.details key={question} variants={item}>
                 <summary>
                   {question}
                   <span aria-hidden="true">+</span>
                 </summary>
                 <p>{answer}</p>
-              </details>
+              </motion.details>
             ))}
-          </div>
+          </Reveal>
         </section>
 
-        <section className="landing-final landing-container">
+        <Reveal as="section" className="landing-final landing-container">
           <HeraMark />
           <span className="landing-eyebrow">SEU PRÓXIMO PASSO</span>
           <h2>
@@ -835,7 +883,7 @@ export function Landing() {
           <Link to="/overview" className="landing-button">
             Abrir meu workspace <ArrowUpRight size={15} />
           </Link>
-        </section>
+        </Reveal>
       </main>
       <footer className="landing-footer landing-container">
         <a href="#inicio" aria-label="Hera — voltar ao início">
@@ -846,25 +894,11 @@ export function Landing() {
           Voltar ao topo <ArrowUpRight size={13} />
         </a>
       </footer>
+      {/* TODO: substituir pela atribuição e licença corretas do female_bust. */}
       <p className="landing-model-credit landing-container">
-        Modelo 3D:{" "}
-        <a
-          href="https://sketchfab.com/3d-models/hera-676125fabf4f48e78ca772b72bbd4937"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Hera, por noe-3d.at
-        </a>
-        {" · "}
-        <a
-          href="https://creativecommons.org/licenses/by-nc/4.0/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          CC BY-NC 4.0
-        </a>
-        {" · Adaptado para pontos."}
+        Modelo 3D adaptado para pontos.
       </p>
     </div>
+    </MotionConfig>
   );
 }

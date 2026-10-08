@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { ArrowUpRight, Cpu, LayoutDashboard, ListOrdered, LogOut, Menu, Radar, Settings, Workflow, X } from "lucide-react";
 import { clearCredentials } from "@/api/auth";
@@ -20,6 +20,14 @@ const navItems = [
   { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 
+const compactMedia = "(max-width: 1199px)";
+function subscribeCompact(onChange: () => void) {
+  const media = window.matchMedia(compactMedia);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+function isCompact() { return window.matchMedia(compactMedia).matches; }
+
 function AppNavigation({ onNavigate }: { onNavigate?: () => void }) {
   return <nav aria-label="Navegação principal" className="app-navigation">
     <p className="app-nav-caption">Workspace</p>
@@ -34,11 +42,12 @@ function AppNavigation({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const { status, issues } = useHera();
+  const compact = useSyncExternalStore(subscribeCompact, isCompact);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [theiaExpanded, setTheiaExpanded] = useState(true);
   const isOverview = pathname === "/overview";
-  const showTheia = isOverview || theiaExpanded;
+  const showTheia = (isOverview && !compact) || theiaExpanded;
   const currentPage = navItems.find(({ to }) => pathname === to || pathname.startsWith(to + "/"));
   const connection = status.error ? "offline" : status.data ? "online" : "pending";
 
@@ -88,10 +97,12 @@ export function AppShell() {
         </div>
       </header>
       <div className={`app-body${showTheia ? " theia-expanded" : ""}`}>
-        <main id="app-content" tabIndex={-1} className="app-content"><Outlet /></main>
-        <TheiaMonitor expanded={showTheia} collapsible={!isOverview} onToggle={() => setTheiaExpanded((current) => !current)} />
+        <div className="app-page">
+          <main id="app-content" tabIndex={-1} className="app-content"><Outlet /></main>
+          <footer className="app-footer"><span>Hera · seu espaço conectado</span><span>Dados do seu gateway</span></footer>
+        </div>
+        <TheiaMonitor expanded={showTheia} collapsible={!isOverview || compact} compact={compact} onToggle={() => setTheiaExpanded((current) => !current)} />
       </div>
-      <footer className="app-footer"><span>Hera · seu espaço conectado</span><span>Dados do seu gateway</span></footer>
     </div>
   </div>;
 }

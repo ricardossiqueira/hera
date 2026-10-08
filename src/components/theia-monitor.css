@@ -1,4 +1,4 @@
-.theia-monitor { position: sticky; top: 76px; max-height: calc(100dvh - 76px); overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #0d0d0d; scrollbar-width: thin; }
+.theia-monitor { position: sticky; top: 76px; height: calc(100dvh - 76px); overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--border); background: #0d0d0d; scrollbar-width: thin; }
 .theia-monitor-heading { position: sticky; top: 0; z-index: 1; background: #0d0d0d; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 20px 16px; }
 .theia-monitor-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 500; }
 .theia-monitor-heading h2 svg { width: 18px; height: 18px; color: #a8ad9b; }
@@ -16,15 +16,29 @@
 .telemetry-compact dd { margin-top: 8px; font-size: 24px; }
 .telemetry-compact [data-slot="card"] p { font-size: 12px; line-height: 1.6; }
 @media (max-width: 1199px) {
-  .theia-monitor { grid-row: 1; z-index: 15; width: 100%; max-height: 38dvh; border-left: 0; }
-  .theia-monitor-heading { padding: 12px 20px; }
-  .theia-monitor-heading p { margin-top: 3px; }
-  .theia-monitor:not(.is-expanded) .theia-monitor-heading { padding: 6px 16px; }
-  .theia-monitor:not(.is-expanded) .theia-toggle { flex-direction: row; padding: 6px 8px; }
-  .theia-monitor:not(.is-expanded) .theia-toggle span { writing-mode: initial; }
-  .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .theia-monitor { grid-row: 1; z-index: 15; width: 100%; height: auto; overflow: visible; border-left: 0; border-bottom: 1px solid var(--border); }
+  .theia-monitor-heading,
+  .theia-monitor:not(.is-expanded) .theia-monitor-heading { position: static; display: flex; align-items: center; padding: 4px 16px 4px 20px; }
+  .theia-monitor-heading h2 { gap: 6px; font-size: 13px; }
+  .theia-monitor-heading h2 svg { width: 14px; height: 14px; }
+  .theia-monitor-heading p { display: none; }
+  .theia-monitor:not(.is-expanded) .theia-toggle { flex-direction: row; height: 40px; padding: 8px; }
+  .theia-monitor:not(.is-expanded) .theia-toggle span { display: none; }
+  .hera-app .theia-monitor .telemetry-compact[data-slot="card"] { --card-spacing: 0px; border: 0; padding: 8px 20px 12px; }
+  .hera-app .theia-monitor .telemetry-compact + .telemetry-compact[data-slot="card"] { border-top: 1px solid var(--border); }
+  .theia-monitor .telemetry-compact [data-slot="card-header"] { margin-bottom: 8px; }
+  .theia-monitor .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-block: 0; }
+  .hera-app .theia-monitor .telemetry-compact [data-slot="card"] { --card-spacing: 0px; border: 0; padding: 0; }
+  .theia-monitor .telemetry-compact dt { font-size: 11px; line-height: 1.4; }
+  .theia-monitor .telemetry-compact dd { margin-top: 4px; font-size: 16px; line-height: 1.25; }
+  .theia-monitor .telemetry-compact dt svg,
+  .theia-monitor .telemetry-compact [data-slot="progress"],
+  .theia-monitor .telemetry-compact [data-slot="card"] p,
+  .theia-monitor .telemetry-timestamp { display: none; }
+  .theia-monitor .theia-message { margin: 12px 20px; font-size: 12px; }
+  #theia-monitor-content > [data-slot="skeleton"] { height: 64px; margin: 12px 20px; }
 }
 @media (max-width: 639px) {
   .theia-monitor { top: 68px; }
-  .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .theia-monitor .telemetry-compact [data-slot="card-content"] > .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
 }
