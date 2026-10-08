@@ -1,4 +1,5 @@
 import { authHeader, clearCredentials } from "./auth";
+import { getGatewayUrl } from "@/config";
 
 /**
  * Browser contract for DEVICE_PLATFORM_V2_IMPLEMENTATION.md.  It deliberately
@@ -142,7 +143,7 @@ function useMocks() {
 }
 
 function gatewayURL(): string {
-  const value = import.meta.env.VITE_GATEWAY_URL?.trim();
+  const value = getGatewayUrl();
   if (!value) {
     throw new DevicePlatformApiError("Defina VITE_GATEWAY_URL ou habilite VITE_DEVICE_V2_MOCKS=true para usar fixtures de desenvolvimento.");
   }

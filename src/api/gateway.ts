@@ -1,4 +1,5 @@
 import { authHeader, clearCredentials } from "./auth";
+import { getGatewayApiBaseUrl } from "@/config";
 
 export interface GatewayStatus {
   startedAt?: string;
@@ -67,13 +68,8 @@ export class GatewayApiError extends Error {
 
 const gatewayService = "/iot.gateway.api.v1.GatewayService";
 
-export function getGatewayApiBaseUrl(): string | undefined {
-  const value = import.meta.env.VITE_GATEWAY_API_BASE_URL?.trim();
-  return value ? value.replace(/\/$/, "") : undefined;
-}
-
 async function request<T>(path: string, body: object): Promise<T> {
-  const baseUrl = getGatewayApiBaseUrl();
+  const baseUrl = getGatewayApiBaseUrl()?.replace(/\/$/, "");
   if (!baseUrl) {
     throw new GatewayApiError("Defina VITE_GATEWAY_API_BASE_URL para conectar ao gateway.");
   }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { HeraMark } from "@/components/hera-mark";
 import {
@@ -462,13 +462,52 @@ const ecosystem = [
 ];
 
 export function Landing() {
+  const root = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeFeature, setActiveFeature] = useState<PreviewKind>("overview");
   const feature = features.find(({ id }) => id === activeFeature)!;
   const closeMenu = () => setMenuOpen(false);
 
+  useEffect(() => {
+    const host = root.current;
+    if (!host || typeof IntersectionObserver === "undefined" || !host.animate) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const targets = host.querySelectorAll<HTMLElement>(".landing-section-heading, .landing-hero-preview, .landing-ecosystem-grid, .landing-feature-layout, .landing-steps article, .landing-principles > div, .landing-faq-list, .landing-final");
+    const revealed = new WeakSet<Element>();
+    const animations = new Set<Animation>();
+    let observer: IntersectionObserver | undefined;
+    const syncMotion = () => {
+      observer?.disconnect();
+      animations.forEach((animation) => animation.cancel());
+      animations.clear();
+      if (motion.matches) return;
+      observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer?.unobserve(entry.target);
+          revealed.add(entry.target);
+          // Content is visible by default, including without animation support.
+          const animation = entry.target.animate([
+            { opacity: 0, transform: "translateY(18px)" },
+            { opacity: 1, transform: "translateY(0)" },
+          ], { duration: 650, easing: "cubic-bezier(.2,.7,.2,1)" });
+          animations.add(animation);
+          animation.onfinish = () => animations.delete(animation);
+        }
+      }, { threshold: 0.08 });
+      targets.forEach((target) => { if (!revealed.has(target)) observer!.observe(target); });
+    };
+    syncMotion();
+    motion.addEventListener("change", syncMotion);
+    return () => {
+      observer?.disconnect();
+      animations.forEach((animation) => animation.cancel());
+      motion.removeEventListener("change", syncMotion);
+    };
+  }, []);
+
   return (
-    <div className="hera-landing" id="inicio">
+    <div ref={root} className="hera-landing" id="inicio">
       <Suspense fallback={null}>
         <LandingParticles />
       </Suspense>
@@ -641,7 +680,7 @@ export function Landing() {
                 role="region"
                 aria-labelledby={`feature-${activeFeature}`}
               >
-                <ProductPreview kind={activeFeature} compact />
+                <ProductPreview key={activeFeature} kind={activeFeature} compact />
                 <div className="landing-feature-description" aria-live="polite">
                   <p>{feature.description}</p>
                   <Link

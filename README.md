@@ -84,21 +84,44 @@ O Vite normalmente usa `http://localhost:5173`. A API precisa permitir também
 `http://127.0.0.1:5173` se o app for aberto por essa origem.
 
 O navegador usa o HTTP Basic Auth atual do gateway. Não coloque usuário ou
-senha em `VITE_*`: essas variáveis entram no bundle do navegador.
+senha em `VITE_*`: esses valores são expostos ao navegador.
+
+## Executar o container
+
+A imagem estática é publicada em `ghcr.io/ricardossiqueira/hera`. Configure os
+dois endereços no ambiente do container; eles são servidos ao navegador como
+configuração pública e devem ser URLs que a máquina do usuário consiga alcançar:
+
+```powershell
+docker run --rm --name hera -p 8080:8080 `
+  -e VITE_GATEWAY_API_BASE_URL=http://192.168.1.100:8082 `
+  -e VITE_GATEWAY_URL=http://192.168.15.100:8082 `
+  ghcr.io/ricardossiqueira/hera:latest
+```
+
+O Gateway deve permitir a origem `http://<host-do-container>:8080` em sua
+allowlist CORS. Essas variáveis contêm apenas URLs; as credenciais continuam
+na memória do navegador e nunca devem ser configuradas no container.
 
 ## Verificação
 
 ### Fundo 3D da landing
 
-A landing carrega Three.js separadamente e renderiza a Hera como 160 mil pontos,
+A landing carrega Three.js separadamente e renderiza a Hera como 128 mil pontos
+(51,2 mil no celular), selecionados da amostra de 160 mil pontos do GLB,
 concentrados no terço superior da estátua, com partículas flutuantes no fundo.
-O enquadramento em três quartos permanece fixo durante a rolagem. Os pontos
+O enquadramento em três quartos tem zoom ampliado em 20% e permanece fixo,
+sem parallax do mouse ou flutuação da estátua. A rolagem controla uma rotação
+suave de até aproximadamente 14 graus. Os pontos
 têm espaçamento mínimo para evitar aglomerados; tamanho e luminância variam
 com altura, profundidade e luz lateral, dando prioridade aos detalhes do rosto.
 Uma superfície invisível escreve apenas profundidade para ocultar pontos
 traseiros, sem desenhar uma estátua sólida. Em telas menores, a densidade é reduzida;
 com movimento reduzido, a composição fica estática. Sem WebGL ou se o modelo
-falhar, a página mantém seu fundo e continua navegável.
+falhar, a página mantém seu fundo e continua navegável. O header usa fundo
+translúcido com blur; seções entram suavemente uma única vez e as prévias
+transicionam na seleção. A preferência por movimento reduzido desativa
+rotação e animações de entrada, mantendo o conteúdo visível.
 
 O original foi preservado em `assets/source/hera.glb` (ignorado pelo Git).
 O arquivo servido é `public/models/hera-points.glb`, de aproximadamente 8,2 MB,

@@ -50,7 +50,7 @@ function pointMaterial(model: boolean) {
       varying float vAlpha;
       varying float vLight;
       void main() {
-        // Keep the cloud on its depth surface; float the whole group instead.
+        // Keep the cloud aligned with its depth surface as the group rotates.
         vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
         vec3 n = normalize(normalMatrix * normal);
         float facing = dot(n, normalize(-viewPosition.xyz));
@@ -124,7 +124,7 @@ export default function LandingParticles() {
     });
     const dustMaterial = pointMaterial(false);
     const dustGeometry = new BufferGeometry();
-    const positions = new Float32Array(650 * 3);
+    const positions = new Float32Array(520 * 3);
     for (let i = 0; i < positions.length; i += 3) {
       positions[i] = (Math.random() - 0.5) * 24;
       positions[i + 1] = (Math.random() - 0.5) * 12;
@@ -140,8 +140,8 @@ export default function LandingParticles() {
     let frame = 0;
     let modelGeometry: BufferGeometry | undefined;
     let occlusionGeometry: BufferGeometry | undefined;
-    let pointerX = 0;
-    let pointerY = 0;
+    let targetRotation = 1.15;
+    let rotation = 1.15;
     let elapsed = 0;
     let previousTime = 0;
     let mobile = false;
@@ -151,14 +151,8 @@ export default function LandingParticles() {
       const movement = reducedMotion.matches ? 0 : elapsed;
       modelMaterial.uniforms.uTime.value = movement;
       dustMaterial.uniforms.uTime.value = movement;
-      statue.rotation.y =
-        1.15 +
-        (reducedMotion.matches
-          ? 0
-          : Math.sin(movement * 0.16) * 0.045 + pointerX * 0.025);
-      statue.rotation.x = reducedMotion.matches ? 0 : pointerY * 0.025;
-      statue.position.y =
-        (mobile ? -0.25 : 0.05) + Math.sin(movement * 0.4) * 0.07;
+      statue.rotation.y = reducedMotion.matches ? 1.15 : rotation;
+      statue.position.y = mobile ? -0.25 : 0.05;
       const scrollFade = Math.max(
         0.32,
         1 - window.scrollY / (window.innerHeight * 1.3),
@@ -168,7 +162,14 @@ export default function LandingParticles() {
       renderer.render(scene, camera);
     };
     const animate = (time: number) => {
-      if (previousTime) elapsed += Math.min((time - previousTime) / 1000, 0.05);
+      if (disposed || contextLost || document.hidden || reducedMotion.matches) {
+        previousTime = 0;
+        if (!document.hidden) render();
+        return;
+      }
+      const delta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0;
+      elapsed += delta;
+      rotation += (targetRotation - rotation) * (1 - Math.exp(-8 * delta));
       previousTime = time;
       render();
       frame = requestAnimationFrame(animate);
@@ -185,6 +186,11 @@ export default function LandingParticles() {
         frame = requestAnimationFrame(animate);
       } else if (!document.hidden) render();
     };
+    const updateScroll = () => {
+      const scrollRange = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = Math.min(1, Math.max(0, window.scrollY / scrollRange));
+      targetRotation = 1.15 + progress * 0.24;
+    };
     const resize = () => {
       const width = host.clientWidth;
       const height = host.clientHeight;
@@ -199,22 +205,20 @@ export default function LandingParticles() {
         camera.position.z *
         camera.aspect;
       statue.position.x = halfWidth * (mobile ? 0.65 : 0.66);
-      statue.scale.setScalar(mobile ? 2.1 : 2.65);
+      statue.scale.setScalar((mobile ? 2.1 : 2.65) * 1.2);
       if (modelGeometry) {
         const count = modelGeometry.getAttribute("position").count;
-        modelGeometry.setDrawRange(0, mobile ? Math.floor(count * 0.4) : count);
+        // The offline sample is shuffled, so a prefix remains evenly distributed.
+        modelGeometry.setDrawRange(0, Math.floor(count * (mobile ? 0.32 : 0.8)));
       }
-      dustGeometry.setDrawRange(0, mobile ? 250 : 650);
+      dustGeometry.setDrawRange(0, mobile ? 200 : 520);
       modelMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
       dustMaterial.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+      updateScroll();
       render();
     };
-    const onPointer = (event: PointerEvent) => {
-      if (event.pointerType !== "mouse" || reducedMotion.matches) return;
-      pointerX = event.clientX / window.innerWidth - 0.5;
-      pointerY = event.clientY / window.innerHeight - 0.5;
-    };
     const onScroll = () => {
+      updateScroll();
       if (reducedMotion.matches) render();
     };
     const onContextLost = (event: Event) => {
@@ -229,7 +233,6 @@ export default function LandingParticles() {
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
-    window.addEventListener("pointermove", onPointer, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("visibilitychange", syncMotion);
     reducedMotion.addEventListener("change", syncMotion);
@@ -290,7 +293,6 @@ export default function LandingParticles() {
       controller.abort();
       cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", syncMotion);
       reducedMotion.removeEventListener("change", syncMotion);
