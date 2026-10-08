@@ -1,7 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { QueryClientProvider, useQuery, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getQueueSummary, getStatus, type GatewayStatus, type QueueSummary } from "@/api/gateway";
 import { getDeviceTelemetryV2, listDevicesV2, type RegisteredDeviceV2, type TelemetrySnapshotV2 } from "@/api/device-v2";
+import { createHeraQueryClient, queryKeys } from "@/api/queries";
 
 export type Resource<T> = { data?: T; error?: string; loading: boolean; updatedAt?: Date };
 
@@ -38,40 +40,33 @@ type HeraContextValue = {
 
 const HeraContext = createContext<HeraContextValue | undefined>(undefined);
 
-function useResource<T>(loader: () => Promise<T>) {
-  const [resource, setResource] = useState<Resource<T>>({ loading: true });
-  const running = useRef(false);
-
+function useResource<T>(queryKey: QueryKey, loader: () => Promise<T>) {
+  const query = useQuery({ queryKey, queryFn: loader, refetchInterval: 10_000, refetchIntervalInBackground: true });
+  const { refetch } = query;
   const refresh = useCallback(async () => {
-    if (running.current) return;
-    running.current = true;
-    setResource((current) => ({ ...current, loading: current.data === undefined, error: undefined }));
-    try {
-      const data = await loader();
-      setResource({ data, loading: false, updatedAt: new Date() });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro inesperado.";
-      setResource((current) => ({ ...current, loading: false, error: message }));
-    } finally {
-      running.current = false;
-    }
-  }, [loader]);
-
-  useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 10_000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
-
+    await refetch({ cancelRefetch: false });
+  }, [refetch]);
+  const resource: Resource<T> = {
+    data: query.data,
+    error: query.error?.message,
+    loading: query.isPending,
+    updatedAt: query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : undefined,
+  };
   return [resource, refresh] as const;
 }
 
 let nextIssueId = 0;
 
 export function HeraProvider({ children }: { children: ReactNode }) {
-  const [status, refreshStatus] = useResource(getStatus);
-  const [queueSummary, refreshQueueSummary] = useResource(getQueueSummary);
-  const [deviceOverview, refreshDevices] = useResource(loadDeviceOverview);
+  const [client] = useState(createHeraQueryClient);
+  useEffect(() => () => client.clear(), [client]);
+  return <QueryClientProvider client={client}><HeraDataProvider>{children}</HeraDataProvider></QueryClientProvider>;
+}
+
+function HeraDataProvider({ children }: { children: ReactNode }) {
+  const [status, refreshStatus] = useResource(queryKeys.status, getStatus);
+  const [queueSummary, refreshQueueSummary] = useResource(queryKeys.queueSummary, getQueueSummary);
+  const [deviceOverview, refreshDevices] = useResource(queryKeys.deviceOverview, loadDeviceOverview);
   const devices = { ...deviceOverview, data: deviceOverview.data?.devices };
   const telemetry = { ...deviceOverview, data: deviceOverview.data?.telemetry };
   const [issues, setIssues] = useState<Issue[]>([]);

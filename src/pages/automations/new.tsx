@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { type AutomationRuleV2, type OutputChannel, createAutomationRuleV2, listDevicesV2, type RegisteredDeviceV2 } from "@/api/device-v2";
+import { type AutomationRuleV2, type OutputChannel, createAutomationRuleV2, type RegisteredDeviceV2 } from "@/api/device-v2";
+import { queryKeys } from "@/api/queries";
+import { useHera } from "@/context/hera-context";
 import { PageHeading } from "@/components/page-heading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { ActionNodeData } from "@/components/automation-flow/action-node";
@@ -18,7 +21,8 @@ function commandsFor(device?: RegisteredDeviceV2) { return device?.manifest.mqtt
 
 export function NewAutomation() {
   const navigate = useNavigate();
-  const [devices, setDevices] = useState<RegisteredDeviceV2[]>();
+  const { devices: { data: devices, error: devicesError } } = useHera();
+  const client = useQueryClient();
   const [id, setId] = useState("");
   const [sourceDeviceId, setSourceDeviceId] = useState("");
   const [outputChannel, setOutputChannel] = useState<OutputChannel | "">("");
@@ -29,10 +33,14 @@ export function NewAutomation() {
   const [commandType, setCommandType] = useState("");
   const [actionValues, setActionValues] = useState<Record<string, string | boolean>>({});
   const [enabled, setEnabled] = useState(true);
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => { void listDevicesV2().then(setDevices).catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao carregar interfaces.")); }, []);
+  const { mutate, error: mutationError, isPending: submitting } = useMutation({
+    mutationFn: createAutomationRuleV2,
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: queryKeys.automations });
+      await navigate({ to: "/automations" });
+    },
+  });
+  const error = mutationError?.message ?? devicesError;
 
   const source = devices?.find((device) => device.deviceId === sourceDeviceId);
   const target = devices?.find((device) => device.deviceId === targetDeviceId);
@@ -80,10 +88,7 @@ export function NewAutomation() {
       },
       action: { targetDeviceId, commandType, parameters: coerceParameterValues(actionSchema, actionValues) },
     };
-    setSubmitting(true); setError(undefined);
-    try { await createAutomationRuleV2(rule); await navigate({ to: "/automations" }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao criar automação."); }
-    finally { setSubmitting(false); }
+    mutate(rule);
   };
 
   const eventData: EventNodeData = {

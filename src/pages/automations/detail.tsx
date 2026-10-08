@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { listAutomationRulesV2, type AutomationRuleV2 } from "@/api/device-v2";
+import { automationsQuery } from "@/api/queries";
 import { RuleCanvas } from "@/components/automation-flow/rule-canvas";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
@@ -11,23 +11,9 @@ import { formatDate } from "@/lib/format";
 
 export function AutomationDetail() {
   const { ruleId } = useParams({ from: "/app/automations/$ruleId" });
-  const [rule, setRule] = useState<AutomationRuleV2>();
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    let cancelled = false;
-    setRule(undefined);
-    setError(undefined);
-    void listAutomationRulesV2().then((rules) => {
-      if (cancelled) return;
-      const found = rules.find((item) => item.id === ruleId);
-      if (found) setRule(found);
-      else setError("Automação não encontrada.");
-    }).catch((cause) => {
-      if (!cancelled) setError(cause instanceof Error ? cause.message : "Falha ao carregar automação.");
-    });
-    return () => { cancelled = true; };
-  }, [ruleId]);
+  const { data: rules, error: queryError, isPending } = useQuery(automationsQuery);
+  const rule = rules?.find((item) => item.id === ruleId);
+  const error = queryError?.message ?? (!isPending && !rule ? "Automação não encontrada." : undefined);
 
   return <>
     <PageHeading title={ruleId} description="Detalhes da automação. Visualização somente leitura." action={<Button variant="outline" asChild><Link to="/automations"><ArrowLeft /> Voltar</Link></Button>} />

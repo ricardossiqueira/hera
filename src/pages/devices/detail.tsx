@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft, FileJson } from "lucide-react";
 import { toast } from "sonner";
-import { type CommandDefinitionV2, type DeviceManifestV2, type RegisteredDeviceV2, getDeviceV2, publishCommandV2 } from "@/api/device-v2";
+import { type CommandDefinitionV2, type DeviceManifestV2, publishCommandV2 } from "@/api/device-v2";
+import { deviceQuery, queryKeys } from "@/api/queries";
 import { DeviceInterface } from "@/components/device-interface";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
@@ -21,18 +23,19 @@ import { TelemetryCard } from "@/components/telemetry-card";
 function CommandToggle({ deviceId, command }: { deviceId: string; command: CommandDefinitionV2 }) {
   const [paramName] = Object.keys(command.parameters);
   const [checked, setChecked] = useState(false);
-  const [sending, setSending] = useState(false);
+  const client = useQueryClient();
+  const { mutateAsync, isPending: sending } = useMutation({
+    mutationFn: (next: boolean) => publishCommandV2(deviceId, command.type, { [paramName]: next }),
+    onSuccess: () => { void client.invalidateQueries({ queryKey: queryKeys.recentEvents }); },
+  });
   const toggle = async (next: boolean) => {
-    setSending(true);
     setChecked(next);
     try {
-      await publishCommandV2(deviceId, command.type, { [paramName]: next });
+      await mutateAsync(next);
       toast.success(`Comando "${command.type}" enviado.`);
     } catch (error) {
       setChecked(!next);
       toast.error(error instanceof Error ? error.message : "Falha ao enviar comando.");
-    } finally {
-      setSending(false);
     }
   };
   return <div className="flex items-center justify-between rounded-lg border p-3">
@@ -56,16 +59,15 @@ function CommandControls({ deviceId, manifest }: { deviceId: string; manifest: D
 
 export function DeviceDetail() {
   const { deviceId } = useParams({ from: "/app/devices/$deviceId" });
-  const [device, setDevice] = useState<RegisteredDeviceV2>();
-  const [error, setError] = useState<string>();
-  useEffect(() => { void getDeviceV2(deviceId).then(setDevice).catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao carregar device.")); }, [deviceId]);
+  const { data: device, error: queryError } = useQuery(deviceQuery(deviceId));
+  const error = queryError?.message;
   if (!device && !error) return <Card><CardContent>Carregando device…</CardContent></Card>;
   if (!device) return <Card><CardContent><p className="text-destructive">{error}</p><Link to="/devices" className="mt-3 inline-block text-primary hover:underline">Voltar para devices</Link></CardContent></Card>;
   return <>
     <PageHeading title={device.deviceId} description="Interface observada no device e aceita pelo gateway." action={<Button variant="outline" asChild><Link to="/devices"><ArrowLeft /> Voltar</Link></Button>} />
     <div className="space-y-4"><Card><CardHeader><CardTitle>Binding ativo</CardTitle></CardHeader><CardContent className="grid gap-4 text-sm md:grid-cols-3"><dl><dt className="text-muted-foreground">UID imutável</dt><dd className="mt-1 font-mono">{device.deviceUid}</dd></dl><dl><dt className="text-muted-foreground">Manifest</dt><dd className="mt-1">{device.manifest.manifest_id} <span className="font-mono text-xs">({device.manifestRevision})</span></dd></dl><dl><dt className="text-muted-foreground">Estado</dt><dd className="mt-1"><Badge variant={device.activeState === "active" ? "success" : "outline"}>{device.activeState}</Badge></dd></dl><dl><dt className="text-muted-foreground">Hash aceito</dt><dd className="mt-1 break-all font-mono text-xs">{device.manifestHash}</dd></dl><dl><dt className="text-muted-foreground">Identidade</dt><dd className="mt-1 font-mono text-xs">{device.identityFingerprint}</dd></dl><dl><dt className="text-muted-foreground">Atualizado</dt><dd className="mt-1">{new Date(device.updatedAt).toLocaleString()}</dd></dl></CardContent></Card>
       {device.recoveryReason ? <Card><CardContent><p className="text-destructive">Recuperação necessária: {device.recoveryReason}</p></CardContent></Card> : null}
-      <CommandControls deviceId={device.deviceId} manifest={device.manifest} />
+      <CommandControls key={device.deviceId} deviceId={device.deviceId} manifest={device.manifest} />
       {device.manifest.mqtt.publish.some((output) => output.channel === "telemetry") ? <TelemetryCard deviceId={device.deviceId} /> : null}
       <DeviceInterface manifest={device.manifest} />
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><FileJson className="size-4" /> Manifest observado</CardTitle></CardHeader><CardContent><pre className="max-h-96 overflow-auto rounded bg-muted p-3 text-xs">{JSON.stringify(device.manifest, null, 2)}</pre></CardContent></Card>

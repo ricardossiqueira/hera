@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Cpu, Radar, RefreshCw } from "lucide-react";
-import { type DiscoveredDeviceV2, type DiscoveryStatus, listDiscoveryV2 } from "@/api/device-v2";
+import { type DiscoveryStatus } from "@/api/device-v2";
+import { discoveryQuery } from "@/api/queries";
 import { PageHeading } from "@/components/page-heading";
 import { ResourceEmpty, ResourceField, ResourceIdentity, ResourceList, ResourceListItem, ResourceNote, SummaryStrip, matchesSearch } from "@/components/resource-list";
 import { StatusIndicator } from "@/components/status-indicator";
@@ -14,12 +16,10 @@ const statusLabels: Record<DiscoveryStatus, string> = {
 const trustLabels = { trusted: "Identidade confiável", unknown: "Confiança desconhecida", invalid: "Identidade inválida" };
 
 export function Discovery() {
-  const [entries, setEntries] = useState<DiscoveredDeviceV2[]>();
-  const [error, setError] = useState<string>();
-  const [loading, setLoading] = useState(true);
+  const { data: entries, error: queryError, isFetching: loading, refetch } = useQuery({ ...discoveryQuery, refetchInterval: 10_000, refetchIntervalInBackground: true });
+  const error = queryError?.message;
+  const refresh = () => refetch({ cancelRefetch: false });
   const [query, setQuery] = useState("");
-  const refresh = async () => { setLoading(true); try { setEntries(await listDiscoveryV2()); setError(undefined); } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao consultar discovery."); } finally { setLoading(false); } };
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(), 10_000); return () => window.clearInterval(timer); }, []);
   const visible = entries?.filter((entry) => matchesSearch(query, entry.deviceUid, entry.model, entry.address, entry.manifest?.display_name, statusLabels[entry.status], trustLabels[entry.trust])) ?? [];
 
   return <>

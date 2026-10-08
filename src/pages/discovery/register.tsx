@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Check, ShieldCheck } from "lucide-react";
-import { type DiscoveredDeviceV2, listDiscoveryV2, registerDiscoveredDeviceV2, type RegisterDiscoveredDeviceResponseV2 } from "@/api/device-v2";
+import { type DiscoveredDeviceV2, registerDiscoveredDeviceV2 } from "@/api/device-v2";
+import { discoveryQuery, queryKeys } from "@/api/queries";
 import { DeviceInterface } from "@/components/device-interface";
 import { PageHeading } from "@/components/page-heading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,44 +12,38 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useHera } from "@/context/hera-context";
 
 function suggestedId(entry: DiscoveredDeviceV2) { return `${entry.model}-${entry.deviceUid.slice(-4)}`.replace(/[^a-z0-9_.-]/g, "-"); }
 
 export function RegisterDiscoveredDevice() {
   const { deviceUid } = useParams({ from: "/app/discovery/$deviceUid" });
+  const { data: entries, error, isPending } = useQuery(discoveryQuery);
+  const entry = entries?.find((item) => item.deviceUid === deviceUid);
+  if (isPending) return <Card><CardContent>Carregando anúncio…</CardContent></Card>;
+  if (!entry) return <Card><CardContent><p className="text-destructive">{error?.message ?? "O anúncio expirou."}</p><Link className="mt-3 inline-block text-primary hover:underline" to="/discovery">Voltar para discovery</Link></CardContent></Card>;
+  // A different identity/interface must be reviewed again before registration.
+  return <RegistrationForm key={`${deviceUid}:${entry.manifestSha256}:${entry.identityFingerprint}`} entry={entry} queryError={error?.message} />;
+}
+
+function RegistrationForm({ entry, queryError }: { entry: DiscoveredDeviceV2; queryError?: string }) {
+  const deviceUid = entry.deviceUid;
   const navigate = useNavigate();
-  const { refreshDevices } = useHera();
-  const [entry, setEntry] = useState<DiscoveredDeviceV2>();
-  const [deviceId, setDeviceId] = useState("");
+  const client = useQueryClient();
+  const [deviceId, setDeviceId] = useState(() => suggestedId(entry));
   const [confirmManifest, setConfirmManifest] = useState(false);
-  const [response, setResponse] = useState<RegisterDiscoveredDeviceResponseV2>();
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setEntry(undefined);
-    setError(undefined);
-    setResponse(undefined);
-    setConfirmManifest(false);
-    setDeviceId("");
-    void listDiscoveryV2().then((items) => {
-      if (!active) return;
-      const found = items.find((item) => item.deviceUid === deviceUid);
-      setEntry(found);
-      if (found) setDeviceId(suggestedId(found));
-    }).catch((cause) => {
-      if (active) setError(cause instanceof Error ? cause.message : "Falha ao consultar discovery.");
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [deviceUid]);
-  const inspectionUnavailable = !entry?.manifest || entry.trust === "invalid" || entry.status === "rejected" || entry.status === "offline";
+  const { data: response, error: mutationError, isPending: submitting, mutate } = useMutation({
+    mutationFn: () => registerDiscoveredDeviceV2(deviceUid, deviceId),
+    onSuccess: (result) => {
+      client.setQueryData(queryKeys.device(result.device.deviceId), result.device);
+      void client.invalidateQueries({ queryKey: queryKeys.deviceOverview });
+      void client.invalidateQueries({ queryKey: queryKeys.status });
+      void client.invalidateQueries({ queryKey: queryKeys.discovery });
+    },
+  });
+  const error = mutationError?.message ?? queryError;
+  const inspectionUnavailable = Boolean(queryError) || !entry.manifest || entry.trust === "invalid" || entry.status === "rejected" || entry.status === "offline";
   const canRegister = Boolean(entry?.deviceUid === deviceUid && !inspectionUnavailable && deviceId && /^[a-z0-9][a-z0-9_.-]*$/.test(deviceId) && confirmManifest);
-  const register = async () => { if (!canRegister) return; setSubmitting(true); try { const result = await registerDiscoveredDeviceV2(deviceUid, deviceId); setResponse(result); void refreshDevices(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao registrar device."); } finally { setSubmitting(false); } };
-  if (loading) return <Card><CardContent>Carregando anúncio…</CardContent></Card>;
-  if (!entry) return <Card><CardContent><p className="text-destructive">{error ?? "O anúncio expirou."}</p><Link className="mt-3 inline-block text-primary hover:underline" to="/discovery">Voltar para discovery</Link></CardContent></Card>;
+  const register = () => { if (canRegister && !submitting && !response) mutate(); };
   return <>
     <PageHeading title={`Registrar ${entry.model}`} description={`UID imutável: ${entry.deviceUid}`} />
     <div className="space-y-4">

@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, ChevronRight, Layers, Plus, Radio, RefreshCw, Workflow, Zap } from "lucide-react";
-import { type AutomationRuleV2, listAutomationRulesV2, outputLabel } from "@/api/device-v2";
+import { outputLabel } from "@/api/device-v2";
+import { automationsQuery } from "@/api/queries";
 import { PageHeading } from "@/components/page-heading";
 import { ResourceEmpty, ResourceField, ResourceIdentity, ResourceList, ResourceListItem, ResourceNote, SummaryStrip, matchesSearch } from "@/components/resource-list";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
 
 export function AutomationsList() {
-  const [rules, setRules] = useState<AutomationRuleV2[]>();
-  const [error, setError] = useState<string>();
-  const [loading, setLoading] = useState(true);
+  const { data: rules, error: queryError, isFetching: loading, refetch } = useQuery(automationsQuery);
+  const error = queryError?.message;
+  const refresh = () => refetch({ cancelRefetch: false });
   const [query, setQuery] = useState("");
-  const refresh = async () => { setLoading(true); try { setRules(await listAutomationRulesV2()); setError(undefined); } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar automações."); } finally { setLoading(false); } };
-  useEffect(() => { void refresh(); }, []);
   const visible = rules?.filter((rule) => matchesSearch(query, rule.id, rule.trigger.sourceDeviceId, rule.action.targetDeviceId, rule.action.commandType, outputLabel(rule.trigger.outputChannel), rule.trigger.eventType, rule.enabled ? "Habilitada" : "Desabilitada")) ?? [];
 
   return <>

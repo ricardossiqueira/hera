@@ -67,15 +67,17 @@ servidor Next nem BFF no primeiro corte.
 - **Dados remotos:** `fetch` encapsulado em um cliente pequeno de Connect
   HTTP/JSON. Nao ha necessidade inicial de gerar cliente TypeScript a partir
   de `.proto`.
-- **Estado:** estado de servidor no cliente, com polling encapsulado; estado
-  local minimo para selecao de LEDs, toast e dialogos.
+- **Estado:** TanStack React Query para cache em memoria por sessao autenticada,
+  consultas compartilhadas, polling de 10 segundos e invalidacao apos mutacoes.
+  Estado local minimo para formularios, selecao de LEDs, toast e dialogos.
+- **Tabelas:** TanStack React Table para a atividade recente, preservando filtros
+  e paginacao por cursor no gateway e a apresentacao dos componentes shadcn/ui.
 - **Testes:** Vitest para unidades e componentes; testes de integracao contra
   a camada de transporte. Nao criar mock server dedicado e nao incluir
   Playwright/E2E no MVP. Validar manualmente o fluxo integrado contra o
   Orange Pi real disponivel.
 
-Uma iteracao de implementacao escolhera bibliotecas de dados/formularios se
-elas se justificarem; nao sao pre-requisito desta spec.
+Formularios continuam usando estado local; consultas e mutacoes usam React Query.
 
 ## 5. Topologia, configuracao e seguranca inicial
 

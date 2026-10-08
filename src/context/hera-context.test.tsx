@@ -1,6 +1,8 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { deviceV2Fixtures, getDeviceTelemetryV2, listDevicesV2, type RegisteredDeviceV2 } from "@/api/device-v2";
+import { getQueueSummary, getStatus, type GatewayStatus, type QueueSummary } from "@/api/gateway";
 import { HeraProvider, useHera } from "./hera-context";
 
 vi.mock("@/api/gateway", () => ({ getStatus: vi.fn().mockResolvedValue({}), getQueueSummary: vi.fn().mockResolvedValue({}) }));
@@ -11,7 +13,11 @@ vi.mock("@/api/device-v2", async (importOriginal) => ({
 
 const device = (deviceId: string, telemetry = true) => ({ deviceId, manifest: telemetry ? deviceV2Fixtures.orangePiManifest : deviceV2Fixtures.ledManifest }) as RegisteredDeviceV2;
 
-beforeEach(() => { vi.mocked(listDevicesV2).mockResolvedValue([device("sensor"), device("led", false)]); });
+beforeEach(() => {
+  vi.mocked(getStatus).mockResolvedValue({} as GatewayStatus);
+  vi.mocked(getQueueSummary).mockResolvedValue({} as QueueSummary);
+  vi.mocked(listDevicesV2).mockResolvedValue([device("sensor"), device("led", false)]);
+});
 afterEach(() => { cleanup(); vi.resetAllMocks(); vi.useRealTimers(); });
 
 it("loads only manifest-declared telemetry and isolates device errors", async () => {
@@ -40,9 +46,10 @@ it("polls every ten seconds, skips overlapping refreshes and stops on unmount", 
   vi.mocked(getDeviceTelemetryV2).mockImplementation(() => new Promise((resolve) => { resolveSnapshot = resolve; }));
   const { result, unmount } = renderHook(useHera, { wrapper: HeraProvider });
   await act(async () => {});
-  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); await result.current.refreshTelemetry(); });
+  let refresh!: Promise<void>;
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); refresh = result.current.refreshTelemetry(); });
   expect(getDeviceTelemetryV2).toHaveBeenCalledTimes(1);
-  await act(async () => { resolveSnapshot({ available: false }); });
+  await act(async () => { resolveSnapshot({ available: false }); await refresh; });
   await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
   expect(getDeviceTelemetryV2).toHaveBeenCalledTimes(2);
   await act(async () => { resolveSnapshot({ available: false }); });
@@ -57,8 +64,21 @@ it("keeps the last data with an explicit error when refreshing the registry fail
   await waitFor(() => expect(result.current.telemetry.loading).toBe(false));
   vi.mocked(listDevicesV2).mockRejectedValueOnce(new Error("registry unavailable"));
   await act(async () => { await result.current.refreshTelemetry(); });
-  expect(result.current.telemetry.error).toBe("registry unavailable");
+  await waitFor(() => expect(result.current.telemetry.error).toBe("registry unavailable"));
   expect(result.current.devices.error).toBe("registry unavailable");
   expect(result.current.devices.data).toHaveLength(2);
   expect(result.current.telemetry.data?.[0].snapshot?.fields).toEqual({ value: 0 });
+});
+
+it("discards the authenticated cache on unmount and starts a new session empty", async () => {
+  vi.mocked(getDeviceTelemetryV2).mockResolvedValue({ available: false });
+  const first = renderHook(() => ({ hera: useHera(), client: useQueryClient() }), { wrapper: HeraProvider });
+  await waitFor(() => expect(first.result.current.hera.devices.data).toHaveLength(2));
+  const oldClient = first.result.current.client;
+  first.unmount();
+  expect(oldClient.getQueryCache().getAll()).toHaveLength(0);
+  vi.mocked(listDevicesV2).mockResolvedValue([device("new-session", false)]);
+  const second = renderHook(useHera, { wrapper: HeraProvider });
+  expect(second.result.current.devices.data).toBeUndefined();
+  await waitFor(() => expect(second.result.current.devices.data?.[0].deviceId).toBe("new-session"));
 });

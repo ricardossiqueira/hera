@@ -33,8 +33,14 @@ preservando a escolha durante a navegação. Em telas menores, aparece como
 uma faixa fixa abaixo do cabeçalho, com rolagem própria. A telemetria dos
 demais dispositivos continua na área central da visão geral.
 
-O primeiro corte está implementado com React, TypeScript, Vite, TanStack Router
-e Tailwind CSS:
+O primeiro corte está implementado com React, TypeScript, Vite, TanStack Router,
+TanStack React Query, TanStack React Table e Tailwind CSS. React Query compartilha
+consultas, controla o polling e invalida os dados afetados pelas mutações. O cache
+fica em memória por sessão autenticada e é descartado ao sair. A tabela de
+atividade recente usa React Table com filtros e paginação por cursor no gateway.
+O favicon SVG acompanha a marca `HeraMark`.
+
+Recursos implementados:
 
 - visão geral com status e telemetria, polling de 10 segundos e atualização manual;
 - mini dashboard do Orange Pi monitorado pelo Theia: CPU, memória, disco, temperatura, carga e tempo ligado;

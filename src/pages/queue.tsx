@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createColumnHelper, rowPaginationFeature, tableFeatures, useTable } from "@tanstack/react-table";
 import { Activity, ChevronLeft, ChevronRight, Inbox, RefreshCw } from "lucide-react";
 import { getRecentEvents, type GatewayEvent } from "@/api/gateway";
-import { listDevicesV2, type RegisteredDeviceV2 } from "@/api/device-v2";
+import { queryKeys } from "@/api/queries";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,51 +35,51 @@ function outcomeBadgeVariant(outcome: GatewayEvent["outcome"]) {
   return outcome === "rejected" ? "destructive" : "success";
 }
 
+const emptyEvents: GatewayEvent[] = [];
+const features = tableFeatures({ rowPaginationFeature });
+const column = createColumnHelper<typeof features, GatewayEvent>();
+const eventColumns = column.columns([
+  column.accessor("timestamp", { header: "Hora", cell: ({ row }) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(row.original.timestamp)}</span> }),
+  column.accessor("deviceId", { header: "Device", cell: ({ row }) => <span className="font-medium">{row.original.deviceId || "—"}</span> }),
+  column.accessor("kind", { header: "Kind", cell: ({ row }) => <span className="text-muted-foreground">{row.original.kind || "—"}</span> }),
+  column.accessor("outcome", { header: "Resultado", cell: ({ row }) => <Badge variant={outcomeBadgeVariant(row.original.outcome)}>{outcomeLabel[row.original.outcome]}</Badge> }),
+  column.accessor("detail", { header: "Detalhe", cell: ({ row }) => <span className="block max-w-xs truncate text-muted-foreground" title={row.original.detail || undefined}>{row.original.detail || "—"}</span> }),
+]);
+
 function RecentEventsCard() {
-  const [devices, setDevices] = useState<RegisteredDeviceV2[]>([]);
-  useEffect(() => { void listDevicesV2().then(setDevices).catch(() => setDevices([])); }, []);
+  const { devices: { data: devices = [] } } = useHera();
   const [deviceId, setDeviceId] = useState(ALL_DEVICES);
   const [windowMinutes, setWindowMinutes] = useState("15");
   // Stack of `beforeSequence` cursors already visited - top of stack is
   // the current page's cursor (undefined for page 1). Changing a filter
   // resets this, same as any table filter changing resets pagination.
   const [cursorStack, setCursorStack] = useState<string[]>([]);
-  const [events, setEvents] = useState<GatewayEvent[]>();
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
-
   const cursor = cursorStack[cursorStack.length - 1];
-
-  const fetchPage = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: page, error, isFetching: loading, refetch } = useQuery({
+    queryKey: [...queryKeys.recentEvents, { deviceId, windowMinutes, cursor, limit: PAGE_SIZE }],
+    queryFn: () => {
       const minutes = Number(windowMinutes);
       const since = minutes > 0 ? new Date(Date.now() - minutes * 60_000).toISOString() : undefined;
-      const page = await getRecentEvents({
+      return getRecentEvents({
         deviceId: deviceId === ALL_DEVICES ? undefined : deviceId,
         since,
         limit: PAGE_SIZE,
         beforeSequence: cursor,
       });
-      setEvents(page.events);
-      setHasMore(page.hasMore);
-      setError(undefined);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
-    } finally {
-      setLoading(false);
-    }
-  }, [deviceId, windowMinutes, cursor]);
-
-  useEffect(() => {
-    void fetchPage();
-    // Keeps whatever page/filter is currently open fresh - if the operator
-    // paginated back in time, this refreshes that same page in place
-    // rather than jumping them back to page 1.
-    const timer = window.setInterval(() => void fetchPage(), 10_000);
-    return () => window.clearInterval(timer);
-  }, [fetchPage]);
+    },
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+  });
+  const events = page?.events;
+  const table = useTable({
+    features,
+    data: events ?? emptyEvents,
+    columns: eventColumns,
+    getRowId: (event) => event.sequence,
+    manualPagination: true,
+    pageCount: -1,
+    state: { pagination: { pageIndex: cursorStack.length, pageSize: PAGE_SIZE } },
+  });
 
   const changeDevice = (value: string) => { setDeviceId(value); setCursorStack([]); };
   const changeWindow = (value: string) => { setWindowMinutes(value); setCursorStack([]); };
@@ -106,7 +108,7 @@ function RecentEventsCard() {
                 {TIME_WINDOWS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button size="sm" variant="outline" onClick={() => void fetchPage()}><RefreshCw /> Atualizar</Button>
+            <Button size="sm" variant="outline" disabled={loading} onClick={() => void refetch({ cancelRefetch: false })}><RefreshCw /> Atualizar</Button>
           </div>
         </CardTitle>
       </CardHeader>
@@ -115,7 +117,7 @@ function RecentEventsCard() {
           Mensagens aceitas/rejeitadas e rotas locais disparando — diferente da outbox acima, que é só o que aguarda envio à VPS.
         </p>
         {loading && !events ? <Skeleton className="h-48" /> : null}
-        {error && !events ? <p className="text-sm text-destructive">Não foi possível carregar a atividade recente: {error}</p> : null}
+        {error ? <p role="alert" className="text-sm text-destructive">Não foi possível atualizar a atividade recente: {error.message}</p> : null}
         {events && events.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma atividade para esse filtro.</p>
         ) : null}
@@ -123,34 +125,30 @@ function RecentEventsCard() {
           <>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Hora</TableHead>
-                  <TableHead>Device</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Resultado</TableHead>
-                  <TableHead>Detalhe</TableHead>
-                </TableRow>
+                {table.getHeaderGroups().map((group) => <TableRow key={group.id}>
+                  {group.headers.map((header) => <TableHead key={header.id}>
+                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                  </TableHead>)}
+                </TableRow>)}
               </TableHeader>
               <TableBody>
-                {events.map((event) => (
-                  <TableRow key={event.sequence}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(event.timestamp)}</TableCell>
-                    <TableCell className="font-medium">{event.deviceId || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{event.kind || "—"}</TableCell>
-                    <TableCell><Badge variant={outcomeBadgeVariant(event.outcome)}>{outcomeLabel[event.outcome]}</Badge></TableCell>
-                    <TableCell className="max-w-xs truncate text-muted-foreground" title={event.detail || undefined}>{event.detail || "—"}</TableCell>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getAllCells().map((cell) => <TableCell key={cell.id}><table.FlexRender cell={cell} /></TableCell>)}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </>
+        ) : null}
+        {events || cursorStack.length > 0 ? (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">{events.length} evento(s) nesta página</p>
+              <p className="text-xs text-muted-foreground">Página {cursorStack.length + 1} · {events?.length ?? 0} evento(s) nesta página</p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={cursorStack.length === 0} onClick={prevPage}><ChevronLeft /> Anterior</Button>
-                <Button size="sm" variant="outline" disabled={!hasMore} onClick={nextPage}>Próxima <ChevronRight /></Button>
+                <Button size="sm" variant="outline" disabled={!table.getCanPreviousPage()} onClick={prevPage}><ChevronLeft /> Anterior</Button>
+                <Button size="sm" variant="outline" disabled={loading || !page?.hasMore || !events?.length} onClick={nextPage}>Próxima <ChevronRight /></Button>
               </div>
             </div>
-          </>
         ) : null}
       </CardContent>
     </Card>
