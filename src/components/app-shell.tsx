@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { ArrowUpRight, Cpu, LayoutDashboard, ListOrdered, LogOut, Menu, Radar, Settings, Workflow, X } from "lucide-react";
-import { clearCredentials } from "@/api/auth";
+import { logout } from "@/api/auth";
 import { IssuesPopover } from "@/components/issues-popover";
 import { HeraMark } from "@/components/hera-mark";
 import { TheiaMonitor } from "@/components/theia-monitor";
@@ -41,7 +41,13 @@ function AppNavigation({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppShell() {
-  const { status, issues } = useHera();
+  const { status, issues, reportError } = useHera();
+  const [signingOut, setSigningOut] = useState(false);
+  const signOut = async () => {
+    setSigningOut(true);
+    try { await logout(); }
+    catch (error) { reportError(error instanceof Error ? error.message : "Não foi possível encerrar a sessão."); setSigningOut(false); }
+  };
   const compact = useSyncExternalStore(subscribeCompact, isCompact);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -93,7 +99,7 @@ export function AppShell() {
             <StatusIndicator state={connection}>{connection === "online" ? "Gateway online" : connection === "offline" ? "Gateway indisponível" : "Verificando gateway"}</StatusIndicator>
           </span>
           <IssuesPopover issues={issues} />
-          <Button variant="ghost" size="sm" className="app-logout" onClick={() => clearCredentials()} aria-label="Sair"><LogOut /><span>Sair</span></Button>
+          <Button variant="ghost" size="sm" className="app-logout" disabled={signingOut} onClick={() => void signOut()} aria-label="Sair"><LogOut /><span>Sair</span></Button>
         </div>
       </header>
       <div className={`app-body${showTheia ? " theia-expanded" : ""}`}>

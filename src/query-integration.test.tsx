@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { clearCredentials, setCredentials } from "@/api/auth";
+import { clearSession, setSession } from "@/api/auth";
 import * as deviceApi from "@/api/device-v2";
 import { getStatus } from "@/api/gateway";
 import type { ActionNodeData } from "@/components/automation-flow/action-node";
@@ -20,12 +20,12 @@ vi.mock("@/components/automation-flow/rule-canvas", () => ({
 }));
 
 beforeEach(() => {
-  setCredentials("operator", "test-password");
+  setSession({ username: "operator", csrfToken: "test-csrf" });
   vi.stubEnv("VITE_DEVICE_V2_MOCKS", "true");
   vi.stubGlobal("scrollTo", vi.fn());
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 });
-afterEach(() => { cleanup(); clearCredentials(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); clearSession(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 async function open(path: string) {
   const testRouter = createRouter({ routeTree: router.routeTree, history: createMemoryHistory({ initialEntries: [path] }) });

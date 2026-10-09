@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { clearCredentials, setCredentials } from "@/api/auth";
+import { clearSession, restoreSession, setSession } from "@/api/auth";
 import { router } from "@/router";
 import * as deviceApi from "@/api/device-v2";
 import { getStatus, type GatewayStatus } from "@/api/gateway";
@@ -16,7 +16,7 @@ const runtimeStatus: GatewayStatus = {
 };
 
 beforeEach(() => {
-  setCredentials("operator", "test-password");
+  setSession({ username: "operator", csrfToken: "test-csrf" });
   vi.stubEnv("VITE_DEVICE_V2_MOCKS", "true"); vi.stubGlobal("scrollTo", vi.fn());
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.mocked(getStatus).mockResolvedValue({ ...runtimeStatus,
@@ -24,7 +24,7 @@ beforeEach(() => {
     discovery: { total: 3, online: 2, offline: 1, byStatus: { ready_to_register: 2, offline: 1 } },
   });
 });
-afterEach(() => { cleanup(); clearCredentials(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); clearSession(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 async function open(path: string) {
   const testRouter = createRouter({ routeTree: router.routeTree, history: createMemoryHistory({ initialEntries: [path] }) });
@@ -34,7 +34,7 @@ async function open(path: string) {
 }
 
 it("opens the public landing without starting gateway requests and enters through login", async () => {
-  clearCredentials();
+  clearSession();
   vi.mocked(getStatus).mockClear();
   const devices = vi.spyOn(deviceApi, "listDevicesV2");
   const testRouter = await open("/");
@@ -49,8 +49,22 @@ it("opens the public landing without starting gateway requests and enters throug
   expect(await screen.findByRole("heading", { name: /Seus dispositivos\.\s*Uma só visão\./ })).toBeInTheDocument();
 });
 
+it("offers first-account registration and enters with a separate operator password", async () => {
+  clearSession();
+  await restoreSession();
+  await open("/overview");
+  expect(await screen.findByRole("heading", { name: "Cadastrar operador" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Usuário"), { target: { value: "operator" } });
+  fireEvent.change(screen.getByLabelText("Senha", { exact: true }), { target: { value: "test-password" } });
+  fireEvent.change(screen.getByLabelText("Confirmar senha"), { target: { value: "test-password" } });
+  fireEvent.change(screen.getByLabelText("Usuário admin"), { target: { value: "gateway-admin" } });
+  fireEvent.change(screen.getByLabelText("Senha admin"), { target: { value: "admin-secret" } });
+  fireEvent.click(screen.getByRole("button", { name: "Cadastrar e entrar" }));
+  expect(await screen.findByText("CPU")).toBeInTheDocument();
+});
+
 it.each(["/overview", "/devices", "/devices/orangepi-monitor", "/discovery", "/discovery/esp32c3-42a9", "/automations", "/automations/new", "/automations/orangepi-to-cyd", "/queue", "/settings"])("protects direct access to %s before mounting gateway data", async (path) => {
-  clearCredentials();
+  clearSession();
   vi.mocked(getStatus).mockClear();
   const devices = vi.spyOn(deviceApi, "listDevicesV2");
   await open(path);
@@ -60,7 +74,7 @@ it.each(["/overview", "/devices", "/devices/orangepi-monitor", "/discovery", "/d
 });
 
 it("keeps the requested route through login and gates it again after logout", async () => {
-  clearCredentials();
+  clearSession();
   const testRouter = await open("/devices");
   fireEvent.change(await screen.findByLabelText("Usuário"), { target: { value: "operator" } });
   fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "test-password" } });
@@ -73,7 +87,7 @@ it("keeps the requested route through login and gates it again after logout", as
 });
 
 it("lets visitors explore previews and mobile navigation without gateway calls", async () => {
-  clearCredentials();
+  clearSession();
   vi.mocked(getStatus).mockClear();
   await open("/");
   fireEvent.click(await screen.findByRole("button", { name: /Conecte eventos a ações/ }));

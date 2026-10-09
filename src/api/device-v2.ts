@@ -1,4 +1,4 @@
-import { authHeader, clearCredentials } from "./auth";
+import { csrfToken, clearSession } from "./auth";
 import { getGatewayUrl } from "@/config";
 
 /**
@@ -148,6 +148,7 @@ function gatewayURL(): string {
   if (!value) {
     throw new DevicePlatformApiError("Defina VITE_GATEWAY_URL ou habilite VITE_DEVICE_V2_MOCKS=true para usar fixtures de desenvolvimento.");
   }
+  if (value.startsWith("/") && !value.startsWith("//")) return value.replace(/\/$/, "");
   try {
     const url = new URL(value);
     if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("unsupported protocol");
@@ -177,8 +178,8 @@ function errorMessage(payload: unknown, status: number): string {
 async function requestV2<T>(method: string, body: object): Promise<T> {
   const baseUrl = gatewayURL();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const auth = authHeader();
-  if (auth) headers.Authorization = auth;
+	const csrf = csrfToken();
+	if (csrf) headers["X-CSRF-Token"] = csrf;
   let response: Response;
   try {
     response = await fetch(`${baseUrl}/iot.gateway.api.v2.DevicePlatformService/${method}`, { method: "POST", headers, credentials: "include", body: JSON.stringify(body) });
@@ -186,7 +187,7 @@ async function requestV2<T>(method: string, body: object): Promise<T> {
     throw new DevicePlatformApiError("Não foi possível conectar ao Gateway configurado.", undefined, { cause });
   }
   if (response.status === 401) {
-    clearCredentials();
+		clearSession();
     throw new DevicePlatformApiError("Autenticação com o Gateway falhou. Faça login novamente.", response.status);
   }
   const payload = await responsePayload(response);

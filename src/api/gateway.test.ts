@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStatus, GatewayApiError } from "./gateway";
-import { clearCredentials, getCredentials, setCredentials } from "./auth";
+import { clearSession, getAuthState, setSession } from "./auth";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
-  clearCredentials();
+  clearSession();
 });
 
 function stubStatusResponse(init: ResponseInit = { status: 200 }) {
@@ -32,24 +32,25 @@ describe("getStatus", () => {
     expect(headers.Authorization).toBeUndefined();
   });
 
-  it("envia Authorization: Basic quando há credencial em memória", async () => {
+  it("envia o token CSRF da sessão sem expor a senha", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    setCredentials("admin", "admin");
+    setSession({ username: "operator", csrfToken: "csrf" });
     const fetchMock = stubStatusResponse();
 
     await getStatus();
 
     const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Basic " + btoa("admin:admin"));
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers["X-CSRF-Token"]).toBe("csrf");
   });
 
   it("em 401, limpa a credencial e lança um erro específico sem tentar reler o corpo", async () => {
     vi.stubEnv("VITE_GATEWAY_API_BASE_URL", "http://gateway.local:8082");
-    setCredentials("admin", "wrong");
+    setSession({ username: "operator", csrfToken: "csrf" });
     stubStatusResponse({ status: 401 });
 
     await expect(getStatus()).rejects.toMatchObject({ status: 401 } satisfies Partial<GatewayApiError>);
-    expect(getCredentials()).toBeUndefined();
+    expect(getAuthState().status).toBe("anonymous");
   });
 
   it("traduz o codigo Connect already_exists para uma mensagem acionavel", async () => {

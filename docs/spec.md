@@ -1,5 +1,9 @@
 # Especificacao do Hera
 
+> Esta é a especificação inicial. A decisão de não ter contas nem sessões foi
+> substituída pelo módulo de contas de operador do Hestia; veja
+> `hestia/docs/operator-auth.md` para o contrato atual de autenticação.
+
 ## 1. Proposito
 
 `Hera` sera um repositorio independente, com uma interface operacional

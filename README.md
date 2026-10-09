@@ -76,7 +76,7 @@ RPCs no `iot-gateway`. Veja
 - Node.js 24+ e npm;
 - Orange Pi acessível na rede;
 - API do gateway habilitada;
-- CORS no gateway permitindo a origem do Vite, com credenciais.
+- Para login real: uma borda HTTPS servindo Hera e `/api` na mesma origem.
 
 ## Executar localmente
 
@@ -89,28 +89,35 @@ npm install
 npm run dev
 ```
 
-O Vite normalmente usa `http://localhost:5173`. A API precisa permitir também
-`http://127.0.0.1:5173` se o app for aberto por essa origem.
+O Vite normalmente usa `http://localhost:5173`; `HESTIA_UPSTREAM_URL` faz o
+servidor de desenvolvimento encaminhar `/api` ao gateway. Para testar a
+interface sem uma borda HTTPS, configure `VITE_DEVICE_V2_MOCKS=true` em
+`.env.local`. Login real e cookie persistente exigem a origem HTTPS descrita
+abaixo.
 
-O navegador usa o HTTP Basic Auth atual do gateway. Não coloque usuário ou
-senha em `VITE_*`: esses valores são expostos ao navegador.
+Hera usa a conta de operador do Hestia. Na primeira visita, o cadastro pede a
+credencial admin atual uma única vez; depois, login e restauração da sessão
+usam o cookie seguro emitido pelo Hestia. Não coloque senhas em `VITE_*`.
+Para testar o cookie no navegador, sirva Hera e a API sob uma mesma origem
+HTTPS; HTTP local direto serve apenas para desenvolvimento da interface.
 
 ## Executar o container
 
-A imagem estática é publicada em `ghcr.io/ricardossiqueira/hera`. Configure os
-dois endereços no ambiente do container; eles são servidos ao navegador como
-configuração pública e devem ser URLs que a máquina do usuário consiga alcançar:
+A imagem estática é publicada em `ghcr.io/ricardossiqueira/hera`. Quando
+`HESTIA_UPSTREAM_URL` está definido, o Nginx do container encaminha `/api/`
+ao Hestia e Hera usa `/api` para as duas APIs. Sirva o container através de
+uma borda HTTPS, que é necessária para o cookie `Secure`:
 
 ```powershell
 docker run --rm --name hera -p 8080:8080 `
-  -e VITE_GATEWAY_API_BASE_URL=http://192.168.1.100:8082 `
-  -e VITE_GATEWAY_URL=http://192.168.15.100:8082 `
+  -e HESTIA_UPSTREAM_URL=http://192.168.15.100:8082 `
   ghcr.io/ricardossiqueira/hera:latest
 ```
 
-O Gateway deve permitir a origem `http://<host-do-container>:8080` em sua
-allowlist CORS. Essas variáveis contêm apenas URLs; as credenciais continuam
-na memória do navegador e nunca devem ser configuradas no container.
+Restrinja o acesso direto à porta HTTP do Hestia quando a borda HTTPS estiver
+ativa. `HESTIA_UPSTREAM_URL` é uma URL interna usada pelo container; nenhuma
+senha é configurada no Hera. O browser recebe apenas um cookie `HttpOnly` e
+mantém o token CSRF em memória.
 
 ## Verificação
 
@@ -151,6 +158,6 @@ npm run build
 npm test
 ```
 
-A primeira integração real deve validar o preflight CORS e o fluxo de HTTP Basic
-Auth entre o browser e o Orange Pi.
+A primeira integração real deve validar cadastro inicial, login, restauração
+da sessão e logout pelo proxy HTTPS até o Hestia no Orange Pi.
 

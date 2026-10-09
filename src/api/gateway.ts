@@ -1,4 +1,4 @@
-import { authHeader, clearCredentials } from "./auth";
+import { csrfToken, clearSession } from "./auth";
 import { getGatewayApiBaseUrl } from "@/config";
 
 export interface GatewayStatus {
@@ -75,8 +75,8 @@ async function request<T>(path: string, body: object): Promise<T> {
   }
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const auth = authHeader();
-  if (auth) headers.Authorization = auth;
+	const csrf = csrfToken();
+	if (csrf) headers["X-CSRF-Token"] = csrf;
 
   let response: Response;
   try {
@@ -96,8 +96,8 @@ async function request<T>(path: string, body: object): Promise<T> {
     // The browser never resends a stale/wrong credential on its own - drop
     // it so the UI falls back to the login screen and asks again, instead
     // of retrying every 10s with the same rejected credential.
-    clearCredentials();
-    throw new GatewayApiError("Usuário ou senha inválidos.", 401);
+		clearSession();
+		throw new GatewayApiError("Sua sessão expirou. Entre novamente.", 401);
   }
 
   const payload = await response.json().catch(() => ({})) as { message?: string; code?: string };

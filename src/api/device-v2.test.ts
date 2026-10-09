@@ -12,9 +12,9 @@ import {
   listDiscoveryV2,
   registerDiscoveredDeviceV2,
 } from "./device-v2";
-import { clearCredentials, setCredentials } from "./auth";
+import { clearSession, setSession } from "./auth";
 
-afterEach(() => { clearCredentials(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+afterEach(() => { clearSession(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("device-v2 API contract", () => {
   it("uses fixtures only when development mocks are explicitly enabled", async () => {
@@ -96,7 +96,7 @@ describe("device-v2 API contract", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ message: "discovery is unavailable" }), { status: 503 })));
     await expect(listDiscoveryV2()).rejects.toMatchObject({ name: "DevicePlatformApiError", message: "discovery is unavailable", status: 503 });
 
-    setCredentials("operator", "secret");
+    setSession({ username: "operator", csrfToken: "csrf" });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ message: "unauthorized" }), { status: 401 })));
     await expect(listDiscoveryV2()).rejects.toMatchObject({ name: "DevicePlatformApiError", message: expect.stringContaining("Autenticação"), status: 401 });
 
