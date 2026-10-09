@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DevicePlatformApiError,
   createAutomationRuleV2,
+  updateAutomationRuleV2,
+  setAutomationRuleEnabledV2,
+  removeAutomationRuleV2,
   getDeviceTelemetryV2,
   getDeviceV2,
   listAutomationRulesV2,
@@ -34,6 +37,9 @@ describe("device-v2 API contract", () => {
       GetDevice: { deviceId: "led-novo" },
       ListAutomationRules: { rules: [] },
       CreateAutomationRule: { rule },
+      UpdateAutomationRule: { rule },
+      SetAutomationRuleEnabled: { rule: { ...rule, enabled: false } },
+      RemoveAutomationRule: {},
       GetDeviceTelemetry: { available: true, fields: { cpu_pct: 12.5 }, timestamp: "2026-10-01T12:00:00Z", messageId: "msg-1" },
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
@@ -49,13 +55,33 @@ describe("device-v2 API contract", () => {
     await listAutomationRulesV2();
     await getDeviceTelemetryV2("led-novo");
     await expect(createAutomationRuleV2(rule)).resolves.toEqual(rule);
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    const { updatedAt: _updatedAt, ...editableRule } = rule;
+    await expect(updateAutomationRuleV2(editableRule)).resolves.toEqual(rule);
+    await expect(setAutomationRuleEnabledV2("r1", false)).resolves.toMatchObject({ enabled: false });
+    await expect(removeAutomationRuleV2("r1")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(10);
     for (const [url, options] of fetchMock.mock.calls) {
       expect(url).toMatch(/^http:\/\/gateway\.local:8082\/iot\.gateway\.api\.v2\.DevicePlatformService\//);
       expect(options).toEqual(expect.objectContaining({ method: "POST", credentials: "include", headers: expect.objectContaining({ "Content-Type": "application/json" }) }));
       expect(JSON.stringify(options)).not.toContain("password");
     }
-    expect(fetchMock).toHaveBeenLastCalledWith("http://gateway.local:8082/iot.gateway.api.v2.DevicePlatformService/CreateAutomationRule", expect.objectContaining({ body: JSON.stringify({ rule }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(7, "http://gateway.local:8082/iot.gateway.api.v2.DevicePlatformService/CreateAutomationRule", expect.objectContaining({ body: JSON.stringify({ rule }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(8, "http://gateway.local:8082/iot.gateway.api.v2.DevicePlatformService/UpdateAutomationRule", expect.objectContaining({ body: JSON.stringify({ rule: editableRule }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(9, "http://gateway.local:8082/iot.gateway.api.v2.DevicePlatformService/SetAutomationRuleEnabled", expect.objectContaining({ body: JSON.stringify({ ruleId: "r1", enabled: false }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(10, "http://gateway.local:8082/iot.gateway.api.v2.DevicePlatformService/RemoveAutomationRule", expect.objectContaining({ body: JSON.stringify({ ruleId: "r1" }) }));
+  });
+
+  it("keeps mock automation mutations visible through subsequent list calls", async () => {
+    vi.stubEnv("VITE_DEVICE_V2_MOCKS", "true");
+    const created = await createAutomationRuleV2({ id: "crud-test", enabled: true, trigger: { sourceDeviceId: "source", outputChannel: "telemetry" }, action: { targetDeviceId: "target", commandType: "test", parameters: { count: 3 } } });
+    expect(await listAutomationRulesV2()).toContainEqual(created);
+    const disabled = await setAutomationRuleEnabledV2(created.id, false);
+    expect(disabled).toMatchObject({ enabled: false, action: { parameters: { count: 3 } } });
+    const { updatedAt: _updatedAt, ...update } = disabled;
+    const changed = await updateAutomationRuleV2({ ...update, action: { ...update.action, parameters: { count: 4 } } });
+    expect(changed.action.parameters).toEqual({ count: 4 });
+    await removeAutomationRuleV2(created.id);
+    expect(await listAutomationRulesV2()).not.toContainEqual(expect.objectContaining({ id: created.id }));
   });
 
   it("fails clearly instead of silently switching to fixtures when no Gateway URL is configured", async () => {

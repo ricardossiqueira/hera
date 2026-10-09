@@ -8,6 +8,7 @@ import { PageHeading } from "@/components/page-heading";
 import { ResourceEmpty, ResourceField, ResourceIdentity, ResourceList, ResourceListItem, ResourceNote, SummaryStrip, matchesSearch } from "@/components/resource-list";
 import { StatusIndicator } from "@/components/status-indicator";
 import { Button } from "@/components/ui/button";
+import { AutomationActions } from "@/pages/automations/actions";
 
 export function AutomationsList() {
   const { data: rules, error: queryError, isFetching: loading, refetch } = useQuery(automationsQuery);
@@ -43,6 +44,7 @@ export function AutomationsList() {
             <ResourceField label="Ação"><strong className="font-normal">{rule.action.targetDeviceId}</strong><small><Zap className="mr-1 inline" aria-hidden="true" />{rule.action.commandType}</small></ResourceField>
           </span>
         </Link>
+        <AutomationActions rule={rule} className="px-3 pb-4" />
       </ResourceListItem>)}
     </ResourceList>
     <ResourceNote icon={Workflow} title="Um caminho claro entre o que acontece e o que fazer">Abra uma automação para explorar seu fluxo completo, as condições e os parâmetros do comando.</ResourceNote>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
+import { AutomationActions } from "@/pages/automations/actions";
 
 export function AutomationDetail() {
   const { ruleId } = useParams({ from: "/app/automations/$ruleId" });
@@ -26,6 +27,7 @@ export function AutomationDetail() {
         <Link to="/devices/$deviceId" params={{ deviceId: rule.trigger.sourceDeviceId }} className="text-primary hover:underline">Origem: {rule.trigger.sourceDeviceId}</Link>
         <Link to="/devices/$deviceId" params={{ deviceId: rule.action.targetDeviceId }} className="text-primary hover:underline">Destino: {rule.action.targetDeviceId}</Link>
       </CardContent></Card>
+      <Card className="mb-4"><CardContent><AutomationActions rule={rule} detail /></CardContent></Card>
       <RuleCanvas key={rule.id} devices={[]}
         eventData={{ mode: "read_only", deviceId: rule.trigger.sourceDeviceId, outputChannel: rule.trigger.outputChannel, outputChannelOptions: [rule.trigger.outputChannel], eventType: rule.trigger.eventType ?? "", eventTypeOptions: rule.trigger.eventType ? [rule.trigger.eventType] : [], ignoreRetained: rule.trigger.ignoreRetained }}
         conditionData={{ mode: "read_only", conditionJson: rule.trigger.conditionJson ?? "", fieldSuggestions: [] }}

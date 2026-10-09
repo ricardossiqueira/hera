@@ -125,11 +125,12 @@ const fixtureDevices: RegisteredDeviceV2[] = [
   { deviceId: "cyd-painel", deviceUid: "cyd-004", firmwareVersion: "2.0.0", manifest: cydManifest, manifestHash: "c0d0c0d0c0d0c0d0c0d0c0d0c0d0c0d0", manifestRevision: "c0d0c0d0", desiredState: "active", activeState: "active", identityFingerprint: "ED25519:trusted…004", updatedAt: "2026-10-01T11:49:00Z" },
   { deviceId: "orangepi-monitor", deviceUid: "orangepi-001", firmwareVersion: "2.0.0", manifest: orangePiManifest, manifestHash: "aabbccddeeff00112233445566778899", manifestRevision: "aabbccdd", desiredState: "active", activeState: "active", identityFingerprint: "ED25519:trusted…opi", updatedAt: "2026-10-01T11:48:00Z" },
 ];
-const fixtureRules: AutomationRuleV2[] = [{
+const initialFixtureRules: AutomationRuleV2[] = [{
   id: "orangepi-to-cyd", enabled: true,
   trigger: { sourceDeviceId: "orangepi-monitor", outputChannel: "telemetry", conditionJson: "" },
   action: { targetDeviceId: "cyd-painel", commandType: "render_system_status", parameters: { timestamp: "2026-10-01T12:00:00Z" } }, updatedAt: "2026-10-01T11:52:00Z",
 }];
+let fixtureRules = initialFixtureRules.map((rule) => ({ ...rule, trigger: { ...rule.trigger }, action: { ...rule.action, parameters: { ...rule.action.parameters } } }));
 
 export class DevicePlatformApiError extends Error {
   constructor(message: string, public readonly status?: number, options?: ErrorOptions) {
@@ -228,7 +229,7 @@ export async function getDeviceV2(deviceId: string): Promise<RegisteredDeviceV2>
   return requestV2("GetDevice", { deviceId });
 }
 export async function listAutomationRulesV2(): Promise<AutomationRuleV2[]> {
-  if (useMocks()) return fixtureRules;
+  if (useMocks()) return fixtureRules.map((rule) => ({ ...rule, trigger: { ...rule.trigger }, action: { ...rule.action, parameters: { ...rule.action.parameters } } }));
   const result = await requestV2<{ rules?: AutomationRuleV2[] }>("ListAutomationRules", {});
   return result.rules ?? [];
 }
@@ -236,9 +237,45 @@ export async function listAutomationRulesV2(): Promise<AutomationRuleV2[]> {
 // it, ignoring any input) and the Go handler decodes with
 // DisallowUnknownFields - sending it back would 400 as an unknown field.
 export async function createAutomationRuleV2(rule: Omit<AutomationRuleV2, "updatedAt">): Promise<AutomationRuleV2> {
-  if (useMocks()) return { ...rule, updatedAt: new Date().toISOString() };
+  if (useMocks()) {
+    const created = { ...rule, trigger: { ...rule.trigger }, action: { ...rule.action, parameters: { ...rule.action.parameters } }, updatedAt: new Date().toISOString() };
+    fixtureRules = [...fixtureRules, created];
+    return created;
+  }
   const result = await requestV2<{ rule: AutomationRuleV2 }>("CreateAutomationRule", { rule });
   return result.rule;
+}
+
+export async function updateAutomationRuleV2(rule: Omit<AutomationRuleV2, "updatedAt">): Promise<AutomationRuleV2> {
+  if (useMocks()) {
+    if (!fixtureRules.some((item) => item.id === rule.id)) throw new DevicePlatformApiError("Automação não encontrada.", 404);
+    const updated = { ...rule, trigger: { ...rule.trigger }, action: { ...rule.action, parameters: { ...rule.action.parameters } }, updatedAt: new Date().toISOString() };
+    fixtureRules = fixtureRules.map((item) => item.id === rule.id ? updated : item);
+    return updated;
+  }
+  const result = await requestV2<{ rule: AutomationRuleV2 }>("UpdateAutomationRule", { rule });
+  return result.rule;
+}
+
+export async function setAutomationRuleEnabledV2(ruleId: string, enabled: boolean): Promise<AutomationRuleV2> {
+  if (useMocks()) {
+    const existing = fixtureRules.find((item) => item.id === ruleId);
+    if (!existing) throw new DevicePlatformApiError("Automação não encontrada.", 404);
+    const updated = { ...existing, enabled, updatedAt: new Date().toISOString() };
+    fixtureRules = fixtureRules.map((item) => item.id === ruleId ? updated : item);
+    return updated;
+  }
+  const result = await requestV2<{ rule: AutomationRuleV2 }>("SetAutomationRuleEnabled", { ruleId, enabled });
+  return result.rule;
+}
+
+export async function removeAutomationRuleV2(ruleId: string): Promise<void> {
+  if (useMocks()) {
+    if (!fixtureRules.some((item) => item.id === ruleId)) throw new DevicePlatformApiError("Automação não encontrada.", 404);
+    fixtureRules = fixtureRules.filter((item) => item.id !== ruleId);
+    return;
+  }
+  await requestV2<Record<string, never>>("RemoveAutomationRule", { ruleId });
 }
 
 export interface TelemetrySnapshotV2 {

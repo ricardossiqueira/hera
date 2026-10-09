@@ -2,7 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@t
 import { AuthenticatedApp } from "@/components/authenticated-app";
 import { Landing } from "@/pages/landing";
 import { AutomationsList } from "@/pages/automations";
-import { NewAutomation } from "@/pages/automations/new";
+import { EditAutomation, NewAutomation } from "@/pages/automations/new";
 import { AutomationDetail } from "@/pages/automations/detail";
 import { Devices } from "@/pages/devices";
 import { DeviceDetail } from "@/pages/devices/detail";
@@ -34,6 +34,7 @@ const automationsRoute = createRoute({ getParentRoute: () => appRoute, path: "au
 const automationsIndexRoute = createRoute({ getParentRoute: () => automationsRoute, path: "/", component: AutomationsList });
 const newAutomationRoute = createRoute({ getParentRoute: () => automationsRoute, path: "new", component: NewAutomation });
 const automationDetailRoute = createRoute({ getParentRoute: () => automationsRoute, path: "$ruleId", component: AutomationDetail });
+const editAutomationRoute = createRoute({ getParentRoute: () => automationsRoute, path: "$ruleId/edit", component: EditAutomation });
 const appSettingsRoute = createRoute({ getParentRoute: () => appRoute, path: "settings", component: AppSettings });
 
 const routeTree = rootRoute.addChildren([
@@ -43,7 +44,7 @@ const routeTree = rootRoute.addChildren([
     devicesRoute.addChildren([devicesIndexRoute, legacyDiscoveryRoute, legacyRegisterRoute, detailRoute]),
     discoveryRoute.addChildren([discoveryIndexRoute, registerDiscoveredDeviceRoute]),
     queueRoute,
-    automationsRoute.addChildren([automationsIndexRoute, newAutomationRoute, automationDetailRoute]),
+    automationsRoute.addChildren([automationsIndexRoute, newAutomationRoute, automationDetailRoute, editAutomationRoute]),
     appSettingsRoute,
   ]),
 ]);
